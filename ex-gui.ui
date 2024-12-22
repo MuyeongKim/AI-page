@@ -1,0 +1,602 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>MainWindow</class>
+ <widget class="QMainWindow" name="MainWindow">
+  <property name="enabled">
+   <bool>true</bool>
+  </property>
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>550</width>
+    <height>760</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>AI객체탐지 프로그램 V.241214 With Stay Up</string>
+  </property>
+  <widget class="QWidget" name="centralwidget">
+   <widget class="QLabel" name="label">
+    <property name="enabled">
+     <bool>true</bool>
+    </property>
+    <property name="geometry">
+     <rect>
+      <x>0</x>
+      <y>0</y>
+      <width>550</width>
+      <height>80</height>
+     </rect>
+    </property>
+    <property name="font">
+     <font>
+      <pointsize>22</pointsize>
+      <bold>true</bold>
+     </font>
+    </property>
+    <property name="toolTip">
+     <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;AI객체탐지 실행프로그램&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+    </property>
+    <property name="text">
+     <string>AI객체탐지 실행프로그램</string>
+    </property>
+    <property name="alignment">
+     <set>Qt::AlignmentFlag::AlignCenter</set>
+    </property>
+   </widget>
+   <widget class="QLabel" name="label_2">
+    <property name="geometry">
+     <rect>
+      <x>430</x>
+      <y>70</y>
+      <width>91</width>
+      <height>31</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>제작 : 김무영</string>
+    </property>
+   </widget>
+   <widget class="QLabel" name="label_3">
+    <property name="geometry">
+     <rect>
+      <x>57</x>
+      <y>100</y>
+      <width>121</width>
+      <height>41</height>
+     </rect>
+    </property>
+    <property name="font">
+     <font>
+      <pointsize>12</pointsize>
+     </font>
+    </property>
+    <property name="text">
+     <string>1. 영상소스유형</string>
+    </property>
+    <property name="alignment">
+     <set>Qt::AlignmentFlag::AlignCenter</set>
+    </property>
+   </widget>
+   <widget class="QLabel" name="label_4">
+    <property name="geometry">
+     <rect>
+      <x>56</x>
+      <y>160</y>
+      <width>121</width>
+      <height>41</height>
+     </rect>
+    </property>
+    <property name="font">
+     <font>
+      <pointsize>12</pointsize>
+     </font>
+    </property>
+    <property name="text">
+     <string>2. 객체탐지모델</string>
+    </property>
+    <property name="alignment">
+     <set>Qt::AlignmentFlag::AlignCenter</set>
+    </property>
+   </widget>
+   <widget class="QLabel" name="label_5">
+    <property name="geometry">
+     <rect>
+      <x>49</x>
+      <y>220</y>
+      <width>121</width>
+      <height>41</height>
+     </rect>
+    </property>
+    <property name="font">
+     <font>
+      <pointsize>12</pointsize>
+     </font>
+    </property>
+    <property name="text">
+     <string>3. 주소입력창</string>
+    </property>
+    <property name="alignment">
+     <set>Qt::AlignmentFlag::AlignCenter</set>
+    </property>
+   </widget>
+   <widget class="QComboBox" name="comboBox_source">
+    <property name="geometry">
+     <rect>
+      <x>200</x>
+      <y>110</y>
+      <width>131</width>
+      <height>22</height>
+     </rect>
+    </property>
+    <item>
+     <property name="text">
+      <string>선택하세요</string>
+     </property>
+    </item>
+    <item>
+     <property name="text">
+      <string>외부영상(캡쳐보드)</string>
+     </property>
+    </item>
+    <item>
+     <property name="text">
+      <string>사진</string>
+     </property>
+    </item>
+    <item>
+     <property name="text">
+      <string>영상</string>
+     </property>
+    </item>
+   </widget>
+   <widget class="QComboBox" name="comboBox_data">
+    <property name="geometry">
+     <rect>
+      <x>200</x>
+      <y>170</y>
+      <width>131</width>
+      <height>22</height>
+     </rect>
+    </property>
+    <item>
+     <property name="text">
+      <string>선택하세요</string>
+     </property>
+    </item>
+    <item>
+     <property name="text">
+      <string>최대(추천)</string>
+     </property>
+    </item>
+    <item>
+     <property name="text">
+      <string>대</string>
+     </property>
+    </item>
+    <item>
+     <property name="text">
+      <string>중</string>
+     </property>
+    </item>
+    <item>
+     <property name="text">
+      <string>소</string>
+     </property>
+    </item>
+    <item>
+     <property name="text">
+      <string>최소</string>
+     </property>
+    </item>
+    <item>
+     <property name="text">
+      <string>YoloV8(최대)</string>
+     </property>
+    </item>
+    <item>
+     <property name="text">
+      <string>VisDrone(예정)</string>
+     </property>
+    </item>
+    <item>
+     <property name="text">
+      <string>화염전용탐지(예정)</string>
+     </property>
+    </item>
+   </widget>
+   <widget class="QLineEdit" name="lineEdit_juso">
+    <property name="geometry">
+     <rect>
+      <x>200</x>
+      <y>230</y>
+      <width>131</width>
+      <height>21</height>
+     </rect>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="pushButton_search">
+    <property name="geometry">
+     <rect>
+      <x>340</x>
+      <y>230</y>
+      <width>51</width>
+      <height>24</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>파일</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="pushButton_enter">
+    <property name="geometry">
+     <rect>
+      <x>140</x>
+      <y>390</y>
+      <width>101</width>
+      <height>41</height>
+     </rect>
+    </property>
+    <property name="font">
+     <font>
+      <pointsize>12</pointsize>
+     </font>
+    </property>
+    <property name="text">
+     <string>실행하기</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="pushButton_close">
+    <property name="geometry">
+     <rect>
+      <x>300</x>
+      <y>390</y>
+      <width>101</width>
+      <height>41</height>
+     </rect>
+    </property>
+    <property name="font">
+     <font>
+      <pointsize>12</pointsize>
+     </font>
+    </property>
+    <property name="text">
+     <string>종료하기</string>
+    </property>
+   </widget>
+   <widget class="QLabel" name="label_6">
+    <property name="geometry">
+     <rect>
+      <x>340</x>
+      <y>440</y>
+      <width>121</width>
+      <height>50</height>
+     </rect>
+    </property>
+    <property name="font">
+     <font>
+      <pointsize>12</pointsize>
+     </font>
+    </property>
+    <property name="text">
+     <string>[설명창]</string>
+    </property>
+    <property name="alignment">
+     <set>Qt::AlignmentFlag::AlignCenter</set>
+    </property>
+   </widget>
+   <widget class="QPlainTextEdit" name="plainTextEdit">
+    <property name="geometry">
+     <rect>
+      <x>280</x>
+      <y>490</y>
+      <width>251</width>
+      <height>211</height>
+     </rect>
+    </property>
+    <property name="plainText">
+     <string>#현재 2024년 12월 14일 수정판
+객체탐지모델 Yolo V11 사용
+
+※ 실행정지는 콘솔창에서 Ctrl + C 입력
+※ Cuda는 그래픽카드 유무에 따라 사용
+
+
+[차후 업데이트 내용]
+1. 사람이 탐지된 위치 GPS추출, 
+    종료시 지도에 자동으로 표시
+2. 객체탐지 모델 추가(Yolov8x, VisDrone)
+3. 기본장치 GPU로 설정, 없을시 CPU자동변경
+
+[문의]
+tenmoo@naver.com</string>
+    </property>
+   </widget>
+   <widget class="QLabel" name="label_7">
+    <property name="geometry">
+     <rect>
+      <x>36</x>
+      <y>280</y>
+      <width>130</width>
+      <height>41</height>
+     </rect>
+    </property>
+    <property name="font">
+     <font>
+      <pointsize>12</pointsize>
+     </font>
+    </property>
+    <property name="text">
+     <string>4. 옵션설정</string>
+    </property>
+    <property name="alignment">
+     <set>Qt::AlignmentFlag::AlignCenter</set>
+    </property>
+   </widget>
+   <widget class="QLabel" name="label_8">
+    <property name="geometry">
+     <rect>
+      <x>70</x>
+      <y>315</y>
+      <width>391</width>
+      <height>61</height>
+     </rect>
+    </property>
+    <property name="font">
+     <font>
+      <pointsize>8</pointsize>
+     </font>
+    </property>
+    <property name="text">
+     <string>옵션미설정시 기본값 : 신뢰도 10%, 사용장치 GPU, 해상도 1920</string>
+    </property>
+    <property name="alignment">
+     <set>Qt::AlignmentFlag::AlignHCenter|Qt::AlignmentFlag::AlignTop</set>
+    </property>
+   </widget>
+   <widget class="QComboBox" name="comboBox_percentage">
+    <property name="geometry">
+     <rect>
+      <x>190</x>
+      <y>290</y>
+      <width>91</width>
+      <height>22</height>
+     </rect>
+    </property>
+    <item>
+     <property name="text">
+      <string>신뢰도</string>
+     </property>
+    </item>
+    <item>
+     <property name="text">
+      <string>5%</string>
+     </property>
+    </item>
+    <item>
+     <property name="text">
+      <string>10%(기본값)</string>
+     </property>
+    </item>
+    <item>
+     <property name="text">
+      <string>15%</string>
+     </property>
+    </item>
+    <item>
+     <property name="text">
+      <string>20%</string>
+     </property>
+    </item>
+    <item>
+     <property name="text">
+      <string>30%</string>
+     </property>
+    </item>
+    <item>
+     <property name="text">
+      <string>50%</string>
+     </property>
+    </item>
+    <item>
+     <property name="text">
+      <string>80%</string>
+     </property>
+    </item>
+   </widget>
+   <widget class="QComboBox" name="comboBox_device">
+    <property name="geometry">
+     <rect>
+      <x>280</x>
+      <y>290</y>
+      <width>91</width>
+      <height>22</height>
+     </rect>
+    </property>
+    <item>
+     <property name="text">
+      <string>사용장치</string>
+     </property>
+    </item>
+    <item>
+     <property name="text">
+      <string>CPU(기본값)</string>
+     </property>
+    </item>
+    <item>
+     <property name="text">
+      <string>CUDA(GPU)</string>
+     </property>
+    </item>
+   </widget>
+   <widget class="QComboBox" name="comboBox_imgsz">
+    <property name="geometry">
+     <rect>
+      <x>370</x>
+      <y>290</y>
+      <width>91</width>
+      <height>22</height>
+     </rect>
+    </property>
+    <item>
+     <property name="text">
+      <string>해상도</string>
+     </property>
+    </item>
+    <item>
+     <property name="text">
+      <string>640</string>
+     </property>
+    </item>
+    <item>
+     <property name="text">
+      <string>1080</string>
+     </property>
+    </item>
+    <item>
+     <property name="text">
+      <string>1280</string>
+     </property>
+    </item>
+    <item>
+     <property name="text">
+      <string>1680</string>
+     </property>
+    </item>
+    <item>
+     <property name="text">
+      <string>1920(기본값)</string>
+     </property>
+    </item>
+    <item>
+     <property name="text">
+      <string>3000</string>
+     </property>
+    </item>
+    <item>
+     <property name="text">
+      <string>4000(*)</string>
+     </property>
+    </item>
+   </widget>
+   <widget class="QPushButton" name="pushButton_search_2">
+    <property name="geometry">
+     <rect>
+      <x>390</x>
+      <y>230</y>
+      <width>51</width>
+      <height>24</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>폴더</string>
+    </property>
+   </widget>
+   <widget class="QLabel" name="label_9">
+    <property name="geometry">
+     <rect>
+      <x>80</x>
+      <y>440</y>
+      <width>110</width>
+      <height>50</height>
+     </rect>
+    </property>
+    <property name="font">
+     <font>
+      <pointsize>12</pointsize>
+     </font>
+    </property>
+    <property name="text">
+     <string>[사용방법]</string>
+    </property>
+    <property name="alignment">
+     <set>Qt::AlignmentFlag::AlignCenter</set>
+    </property>
+   </widget>
+   <widget class="QPlainTextEdit" name="plainTextEdit_2">
+    <property name="geometry">
+     <rect>
+      <x>20</x>
+      <y>490</y>
+      <width>231</width>
+      <height>211</height>
+     </rect>
+    </property>
+    <property name="plainText">
+     <string>1. 영상소스유형에서 외부영상(캡처보드), 사진, 영상 중 1개를 선택한다.
+
+2. 객체탐지모델은 최대에서 최소까지 5가지이며 최대를 선택하는 것을 추천한다.
+
+3. 객체탐지를 할 파일 또는 폴더를 선택하면 주소입력창에 입력이 된다.
+
+4. 옵션값 설정 후 실행하기를 누르면 콘솔창에 실행과정과 결과값이 나타난다.</string>
+    </property>
+   </widget>
+   <widget class="QCheckBox" name="checkBox_person">
+    <property name="geometry">
+     <rect>
+      <x>190</x>
+      <y>344</y>
+      <width>131</width>
+      <height>31</height>
+     </rect>
+    </property>
+    <property name="font">
+     <font>
+      <pointsize>12</pointsize>
+      <bold>true</bold>
+     </font>
+    </property>
+    <property name="text">
+     <string>&quot;사람&quot;만 탐지</string>
+    </property>
+   </widget>
+   <widget class="QLabel" name="label_10">
+    <property name="geometry">
+     <rect>
+      <x>37</x>
+      <y>340</y>
+      <width>130</width>
+      <height>41</height>
+     </rect>
+    </property>
+    <property name="font">
+     <font>
+      <pointsize>12</pointsize>
+     </font>
+    </property>
+    <property name="text">
+     <string>5. 탐지설정</string>
+    </property>
+    <property name="alignment">
+     <set>Qt::AlignmentFlag::AlignCenter</set>
+    </property>
+   </widget>
+   <widget class="QLabel" name="label_11">
+    <property name="geometry">
+     <rect>
+      <x>160</x>
+      <y>720</y>
+      <width>391</width>
+      <height>16</height>
+     </rect>
+    </property>
+    <property name="font">
+     <font>
+      <pointsize>8</pointsize>
+     </font>
+    </property>
+    <property name="text">
+     <string>This program utilizes Ultralytics YOLO, licensed under GNU GPL v3.</string>
+    </property>
+    <property name="alignment">
+     <set>Qt::AlignmentFlag::AlignHCenter|Qt::AlignmentFlag::AlignTop</set>
+    </property>
+   </widget>
+  </widget>
+  <widget class="QStatusBar" name="statusbar"/>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>
