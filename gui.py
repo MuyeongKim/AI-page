@@ -299,20 +299,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 detected_classes = result.names
                 detected_ids = result.boxes.cls
 
-                # 'person' 탐지 결과 계산
-                if self.only_person:
-                    # '사람만 탐지' 활성화 시, 전체 결과는 이미 'person'만 포함
-                    people_count = len(detected_ids)
-                else:
-                    # 전체 탐지 시, 'person' 클래스 개수 계산
-                    people_count = len([cls_id for cls_id in detected_ids if detected_classes[int(cls_id)] == 'person'])
-
-                if people_count > 0:
-                    total_people_detected += people_count
-                    detected_files.append(source)
-                self.people_count = total_people_detected
-
-
+            
             end_time = time.time()  # 종료 시간 기록
             execution_time = end_time - start_time  # 실행 시간 계산
             print(f"{self.people_count}명이 {source}에서 탐지되었습니다.")
@@ -328,24 +315,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 detected_classes = result.names
                 detected_ids = result.boxes.cls
 
-                # 'person' 탐지 결과 계산
-                if self.only_person:
-                    # '사람만 탐지' 활성화 시, 전체 결과는 이미 'person'만 포함
-                    people_count = len(detected_ids)
-                else:
-                    # 전체 탐지 시, 'person' 클래스 개수 계산
-                    people_count = len([cls_id for cls_id in detected_ids if detected_classes[int(cls_id)] == 'person'])
-
-                if people_count > 0:
-                    total_people_detected += people_count
-                    detected_files.append(source)
-                self.people_count = total_people_detected
-
-
 
             end_time = time.time()  # 종료 시간 기록
             execution_time = end_time - start_time  # 실행 시간 계산
-            print(f"{self.people_count}명이 {source}에서 탐지되었습니다.")
             print(f"실행 시간: {execution_time} 초")        
 
 
