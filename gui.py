@@ -17,7 +17,6 @@ from datetime import datetime
 import os
 import shutil
 import gps2
-from PySide6.QtCore import QThread, Signal  # 비동기 처리를 위한 스레드와 시그널
 
 
 
@@ -286,7 +285,21 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             print(f"총 탐지파일 {image_count}장 중 {len(detected_files)}개 사람탐지, 실행 시간: {execution_time} 초")
             # 결과 알림
             self.display_results(image_count, sources, detected_files, folder_status, execution_time)
-            gps2.process_images_in_folder(output_folder)  # gps2.py의 함수 호출
+                        # 예/아니오 확인 메시지 박스
+            reply = QMessageBox.question(
+                self,
+                "GPS 정보 처리",
+                "GPS 정보 분석을 실행하시겠습니까?",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No
+            )
+
+            if reply == QMessageBox.Yes:
+                # “예” 버튼 클릭 시 실행
+                gps2.process_images_in_folder(output_folder)# gps2.py의 함수 호출
+            else:
+                # “아니오” 버튼 클릭 시 실행되지 않음
+                pass
             
 
 
@@ -302,7 +315,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             
             end_time = time.time()  # 종료 시간 기록
             execution_time = end_time - start_time  # 실행 시간 계산
-            print(f"{self.people_count}명이 {source}에서 탐지되었습니다.")
             print(f"실행 시간: {execution_time} 초")
 
 
