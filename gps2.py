@@ -1,3 +1,4 @@
+# 24.12.25 13:35 수정판
 import os
 import exifread
 import folium

@@ -1,4 +1,4 @@
-# 24.12.25. 12:50
+# 24.12.25 13:35 수정판
 from datetime import datetime
 from PySide6.QtWidgets import QMessageBox, QInputDialog
 import sys

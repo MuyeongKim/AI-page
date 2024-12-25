@@ -310,7 +310,7 @@
 
 
 [문의]
-tenmoo@naver.com</string>
+tenmoo@naver.com </string>
     </property>
    </widget>
    <widget class="QLabel" name="label_7">
