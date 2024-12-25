@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 
 ################################################################################
-## Form generated from reading UI file 'ex-guikTCsIe.ui'
+## Form generated from reading UI file 'ex-guiaHnMOc.ui'
 ##
-## Created by: Qt User Interface Compiler version 6.8.0
+## Created by: Qt User Interface Compiler version 6.8.1
 ##
 ## WARNING! All changes made in this file will be lost when recompiling UI file!
 ################################################################################
@@ -25,6 +25,7 @@ class Ui_MainWindow(object):
             MainWindow.setObjectName(u"MainWindow")
         MainWindow.setEnabled(True)
         MainWindow.resize(550, 760)
+        MainWindow.setContextMenuPolicy(Qt.ContextMenuPolicy.PreventContextMenu)
         self.centralwidget = QWidget(MainWindow)
         self.centralwidget.setObjectName(u"centralwidget")
         self.label = QLabel(self.centralwidget)
@@ -176,7 +177,7 @@ class Ui_MainWindow(object):
     # setupUi
 
     def retranslateUi(self, MainWindow):
-        MainWindow.setWindowTitle(QCoreApplication.translate("MainWindow", u"AI\uac1d\uccb4\ud0d0\uc9c0 \ud504\ub85c\uadf8\ub7a8 V.241214 With Stay Up", None))
+        MainWindow.setWindowTitle(QCoreApplication.translate("MainWindow", u"AI\uac1d\uccb4\ud0d0\uc9c0 \ud504\ub85c\uadf8\ub7a8 V24.1225 With Stay Up", None))
 #if QT_CONFIG(tooltip)
         self.label.setToolTip(QCoreApplication.translate("MainWindow", u"<html><head/><body><p align=\"center\">AI\uac1d\uccb4\ud0d0\uc9c0 \uc2e4\ud589\ud504\ub85c\uadf8\ub7a8</p></body></html>", None))
 #endif // QT_CONFIG(tooltip)
@@ -204,18 +205,15 @@ class Ui_MainWindow(object):
         self.pushButton_enter.setText(QCoreApplication.translate("MainWindow", u"\uc2e4\ud589\ud558\uae30", None))
         self.pushButton_close.setText(QCoreApplication.translate("MainWindow", u"\uc885\ub8cc\ud558\uae30", None))
         self.label_6.setText(QCoreApplication.translate("MainWindow", u"[\uc124\uba85\ucc3d]", None))
-        self.plainTextEdit.setPlainText(QCoreApplication.translate("MainWindow", u"#\ud604\uc7ac 2024\ub144 12\uc6d4 14\uc77c \uc218\uc815\ud310\n"
+        self.plainTextEdit.setPlainText(QCoreApplication.translate("MainWindow", u"#\ud604\uc7ac 2024\ub144 12\uc6d4 25\uc77c \uc218\uc815\ud310\n"
 "\uac1d\uccb4\ud0d0\uc9c0\ubaa8\ub378 Yolo V11 \uc0ac\uc6a9\n"
 "\n"
 "\u203b \uc2e4\ud589\uc815\uc9c0\ub294 \ucf58\uc194\ucc3d\uc5d0\uc11c Ctrl + C \uc785\ub825\n"
 "\u203b Cuda\ub294 \uadf8\ub798\ud53d\uce74\ub4dc \uc720\ubb34\uc5d0 \ub530\ub77c \uc0ac\uc6a9\n"
 "\n"
 "\n"
-"[\ucc28\ud6c4 \uc5c5\ub370\uc774\ud2b8 \ub0b4\uc6a9]\n"
-"1. \uc0ac\ub78c\uc774 \ud0d0\uc9c0\ub41c \uc704\uce58 GPS\ucd94\ucd9c, \n"
-"    \uc885\ub8cc\uc2dc \uc9c0\ub3c4\uc5d0 \uc790\ub3d9\uc73c\ub85c \ud45c\uc2dc\n"
-"2. \uac1d\uccb4\ud0d0\uc9c0 \ubaa8\ub378 \ucd94\uac00(Yolov8x, VisDrone)\n"
-"3. \uae30\ubcf8\uc7a5\uce58 GPU\ub85c \uc124\uc815, \uc5c6\uc744\uc2dc CPU\uc790\ub3d9\ubcc0\uacbd\n"
+"\n"
+"\n"
 "\n"
 "[\ubb38\uc758]\n"
 "tenmoo@naver.com", None))

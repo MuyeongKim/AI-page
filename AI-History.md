@@ -50,6 +50,12 @@ history_md_content = """
 **기능 추가 및 알림 개선** 
 - Github Page 작성
 - 작은 오류수정
+
+### **2024.12.25 (버전 AI-page)**  
+**기능 추가 및 알림 개선** 
+- 실행간 발생되는 다수 오류 수정
+
+
 """
 
 # Save the content to an .md file

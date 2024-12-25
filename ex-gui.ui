@@ -13,8 +13,11 @@
     <height>760</height>
    </rect>
   </property>
+  <property name="contextMenuPolicy">
+   <enum>Qt::ContextMenuPolicy::PreventContextMenu</enum>
+  </property>
   <property name="windowTitle">
-   <string>AI객체탐지 프로그램 V.241214 With Stay Up</string>
+   <string>AI객체탐지 프로그램 V24.1225 With Stay Up</string>
   </property>
   <widget class="QWidget" name="centralwidget">
    <widget class="QLabel" name="label">
@@ -296,18 +299,15 @@
      </rect>
     </property>
     <property name="plainText">
-     <string>#현재 2024년 12월 14일 수정판
+     <string>#현재 2024년 12월 25일 수정판
 객체탐지모델 Yolo V11 사용
 
 ※ 실행정지는 콘솔창에서 Ctrl + C 입력
 ※ Cuda는 그래픽카드 유무에 따라 사용
 
 
-[차후 업데이트 내용]
-1. 사람이 탐지된 위치 GPS추출, 
-    종료시 지도에 자동으로 표시
-2. 객체탐지 모델 추가(Yolov8x, VisDrone)
-3. 기본장치 GPU로 설정, 없을시 CPU자동변경
+
+
 
 [문의]
 tenmoo@naver.com</string>

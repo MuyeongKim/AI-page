@@ -1,64 +1,22 @@
 #-----------------------------------------------------------------------------
-# 새로고침 일자 : 2024.12.23 오후 5시00분
+# 새로고침 일자 : 2024.12.25 오후 12시50분
 # 수정사항 : GUI코드 최종 구성 / 편의사항 구성추가예정
 # 인증창 추가, 사람 객체감지시 팝업알람 추가 및 별도폴더에 복사기능 추가
 # 진행률 창 표시, 객체탐지모델 추가(예정), 캡쳐보드,영상 사람만탐지 적용
 #-----------------------------------------------------------------------------
 
+import start
 import torch
 from ex_gui import Ui_MainWindow
 import sys
 from pathlib import Path
-from PySide6.QtWidgets import QApplication, QMainWindow, QFileDialog, QMessageBox, QProgressDialog, QInputDialog
+from PySide6.QtWidgets import QApplication, QMainWindow, QFileDialog, QMessageBox, QProgressDialog
 from PySide6.QtCore import Qt
 import time
 from ultralytics import YOLO
-from datetime import datetime
 import os
 import shutil
 import gps2
-
-
-
-# 유효기간 및 인증 키 설정
-EXPIRATION_DATE = datetime(2025, 2, 28)
-VALID_KEY = "stayup"
-MAX_ATTEMPTS = 3  # 최대 인증 시도 횟수
-
-def authenticate():
-    # 현재 날짜 확인
-    print("프로그램을 실행하고 있습니다")
-    current_date = datetime.now()
-    if current_date > EXPIRATION_DATE:
-        QMessageBox.critical(None, "오류", "이 프로그램은 2025년 2월 28일 이후에는 실행되지 않습니다.")
-        sys.exit()  # 프로그램 종료
-
-    # 인증 키 입력 받기 (최대 3번 시도)
-    attempts = 0
-    while attempts < MAX_ATTEMPTS:
-        user_key, ok = QInputDialog.getText(
-            None, "AI객체탐지프로그램 with StayUp", "객체탐지 프로그램 실행을 위한 인증 키를 입력하세요:"
-        )
-        if ok:
-            if user_key == VALID_KEY:
-                QMessageBox.information(None, "성공", "인증 성공! AI객체탐지 프로그램을 실행합니다.")
-                return True  # 인증 성공
-            else:
-                attempts += 1
-                remaining_attempts = MAX_ATTEMPTS - attempts
-                if remaining_attempts > 0:
-                    QMessageBox.warning(
-                        None,
-                        "인증 실패",
-                        f"인증 실패! 남은 시도 횟수: {remaining_attempts}회",
-                    )
-                else:
-                    QMessageBox.critical(None, "인증 실패", "인증 실패 횟수 초과! 프로그램을 종료합니다.")
-                    sys.exit()  # 프로그램 종료
-        else:
-            QMessageBox.warning(None, "취소", "인증이 취소되었습니다. 프로그램을 종료합니다.")
-            sys.exit()  # 프로그램 종료
-
 
 
 class Ui_MainWindow(QMainWindow, Ui_MainWindow):
@@ -394,11 +352,15 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             None, "AI 객체 탐지 완료 with Stay Up", message
         )        
 
-if __name__ == "__main__":        
+def run_app():
+    """GUI를 실행하고 인증을 처리하는 메인 로직 함수"""
     app = QApplication(sys.argv)        
-    if authenticate():
+    if start.authenticate():
         window = Ui_MainWindow()
         window.show()
         sys.exit(app.exec())    
     else:
-        sys.exit()      # 인증 실패 시 프로그램 종료  
+        sys.exit()  # 인증 실패 시 프로그램 종료
+
+if __name__ == "__main__":
+    run_app()

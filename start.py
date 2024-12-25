@@ -1,3 +1,4 @@
+# 24.12.25. 12:50
 from datetime import datetime
 from PySide6.QtWidgets import QMessageBox, QInputDialog
 import sys
