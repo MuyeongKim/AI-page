@@ -1,3 +1,4 @@
+# 24.12.25 13:35 수정판
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QLabel, QPushButton, QVBoxLayout, QHBoxLayout,
     QComboBox, QLineEdit, QWidget, QCheckBox, QGroupBox, QTabWidget, QFrame
