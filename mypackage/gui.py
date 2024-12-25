@@ -6,9 +6,9 @@
 # 진행률 창 표시, 객체탐지모델 추가(예정), 캡쳐보드,영상 사람만탐지 적용
 #-----------------------------------------------------------------------------
 
-import start
+from mypackage import start
 import torch
-from ex_gui import Ui_MainWindow
+from mypackage.ex_gui import Ui_MainWindow
 import sys
 from pathlib import Path
 from PySide6.QtWidgets import QApplication, QMainWindow, QFileDialog, QMessageBox, QProgressDialog
@@ -17,7 +17,7 @@ import time
 from ultralytics import YOLO
 import os
 import shutil
-import gps2
+from mypackage import gps2
 
 
 class Ui_MainWindow(QMainWindow, Ui_MainWindow):
