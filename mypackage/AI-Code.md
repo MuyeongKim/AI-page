@@ -1,6 +1,7 @@
 1. 아나콘다 설치, vscode설치
   - 가상환경 추가 3.10.15
   - 파이토치 설치 : 콘다 터미널 conda install pytorch torchvision torchaudio pytorch-cuda=12.4 -c pytorch -c nvidia
+                              pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu124
   - 파이사이더6설치 : pip install Pyside6
   - YOLO 설치 : pip install ultralytics
   - GPS좌표 추출 : pip install exifread
