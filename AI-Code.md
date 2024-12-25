@@ -3,7 +3,9 @@
   - 파이토치 설치 : 콘다 터미널 conda install pytorch torchvision torchaudio pytorch-cuda=12.4 -c pytorch -c nvidia
   - 파이사이더6설치 : pip install Pyside6
   - YOLO 설치 : pip install ultralytics
-
+  - GPS좌표 추출 : pip install exifread
+  - 지도 설치 : pip install folium
+  
 
 Ultralytics 8.3.25 🚀 Python-3.10.12 torch-2.5.0+cu121 CUDA:0 (Tesla T4, 15102MiB)
 Setup complete ✅ (2 CPUs, 12.7 GB RAM, 32.5/112.6 GB disk)
