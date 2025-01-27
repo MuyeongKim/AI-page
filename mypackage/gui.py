@@ -1,6 +1,6 @@
-# 25.01.27 14:35 수정판
+# 25.01.27 20:00 수정판
 #-----------------------------------------------------------------------------
-# 새로고침 일자 : 2025.01.27 오후 14시00분
+# 새로고침 일자 : 2025.01.27 오후 20시00분
 # 수정사항 : GUI코드 최종 구성 / 편의사항 구성추가예정
 # 인증창 추가, 사람 객체감지시 팝업알람 추가 및 별도폴더에 복사기능 추가
 # 진행률 창 표시, 객체탐지모델 추가(예정), 캡쳐보드,영상 사람만탐지 적용
@@ -45,6 +45,10 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.imgsz = 1920
         self.buffer = True
         self.only_person = False
+        self.only_car = False
+        self.classes_to_detect = None
+        self.total_people_detected = 0
+        self.total_cars_detected = 0
 
     def update_detection_options(self):
         """체크박스 상태에 따라 탐지 옵션을 업데이트"""
@@ -65,13 +69,11 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         """체크박스 상태 변경"""
         self.only_person = state == 2  # 체크되면 True, 아니면 False
         self.update_detection_options()
-        print(f"사람만 검색: {self.only_person}")
 
     def update_only_car(self, state):
         """체크박스 상태 변경"""
         self.only_car = state == 2  # 체크되면 True, 아니면 False
         self.update_detection_options()
-        print(f"사람만 검색: {self.only_car}")        
     
     def exit_application(self):
         if self.confirm_exit():
@@ -198,7 +200,108 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         else:
             return 0
 
+    def process_file(self, model, source, detected_files, output_folder):        
+        """단일 파일에 대해 YOLO 모델을 실행하고 원본 및 탐지 결과 파일 복사"""
+        results = model(source, stream=True, imgsz=self.imgsz, save=True, show=False, conf=self.percentage, device=self.device, classes=self.classes_to_detect)
+        # 탐지 결과 계산
+        people_count = 0
+        car1_count = 0
+        car2_count = 0
+        car3_count = 0
 
+
+        for result in results:
+            detected_classes = result.names
+            detected_ids = result.boxes.cls
+
+            def file_copy():
+                                # 1. 원본 파일 복사
+                original_destination = os.path.join(output_folder, "original_" + os.path.basename(source))
+                shutil.copy(source, original_destination)
+
+                # 2.   탐지 결과 파일 복사
+                result_dir = Path(result.save_dir)  # 현재 결과가 저장된 폴더
+                result_file = result_dir / os.path.basename(source)  # 결과 파일 경로
+
+                if result_file.exists():
+                    result_destination = os.path.join(output_folder, "detected_" + os.path.basename(source))
+                    shutil.copy(result_file, result_destination)
+                else:
+                    print(f"탐지 결과 파일을 찾을 수 없습니다: {result_file}")
+
+            if self.only_person and not self.only_car:
+                # '사람만 탐지' 활성화 시
+                people_count = len([cls_id for cls_id in detected_ids if detected_classes[int(cls_id)] == 'person'])
+            elif self.only_car and not self.only_person:
+                # '자동차만 탐지' 활성화 시
+                car1_count = len([cls_id for cls_id in detected_ids if detected_classes[int(cls_id)] == 'car'])
+                car2_count = len([cls_id for cls_id in detected_ids if detected_classes[int(cls_id)] == 'bus'])
+                car3_count = len([cls_id for cls_id in detected_ids if detected_classes[int(cls_id)] == 'truck'])
+            elif self.only_person and self.only_car:
+                # '사람 및 자동차 탐지' 활성화 시
+                people_count = len([cls_id for cls_id in detected_ids if detected_classes[int(cls_id)] == 'person'])
+                car1_count = len([cls_id for cls_id in detected_ids if detected_classes[int(cls_id)] == 'car'])
+                car2_count = len([cls_id for cls_id in detected_ids if detected_classes[int(cls_id)] == 'bus'])
+                car3_count = len([cls_id for cls_id in detected_ids if detected_classes[int(cls_id)] == 'truck'])
+
+
+            if people_count > 0 and car1_count + car2_count + car3_count > 0:
+                print(f"{people_count}명의 사람과 {car1_count + car2_count + car3_count}대의 자동차가 {source}에서 탐지되었습니다.")
+                self.total_people_detected += people_count
+                self.total_cars_detected += car1_count + car2_count + car3_count
+                detected_files.append(source)
+                file_copy()
+
+            elif people_count > 0 and car1_count + car2_count + car3_count == 0:
+                print(f"{people_count}명의 사람이 {source}에서 탐지되었습니다.")
+                self.total_people_detected += people_count
+                self.total_cars_detected += car1_count + car2_count + car3_count
+                detected_files.append(source)  
+                file_copy()
+
+
+            elif people_count == 0 and car1_count + car2_count + car3_count > 0:
+                print(f"{car1_count + car2_count + car3_count}대의 자동차가 {source}에서 탐지되었습니다.")
+                self.total_people_detected += people_count
+                self.total_cars_detected += car1_count + car2_count + car3_count
+                detected_files.append(source)  
+                file_copy()
+
+
+    def display_results(self, image_count, sources, detected_files, folder_status, execution_time):
+        """탐지 결과를 팝업 메시지로 표시"""
+        if detected_files:
+            total_images = image_count if isinstance(self.juso, Path) else len(sources)
+            if self.only_person and not self.only_car:
+                message = (
+                    f"{folder_status}\n\n"
+                    f"선택한 사진파일 총 {total_images}장 중 {self.total_people_detected}명 탐지되었으며 \n 사람이 탐지된 파일 수 : {len(detected_files)}개\n"
+                    f"탐지된 파일(원본 및 결과파일)은 detected_files 폴더에 저장되었습니다.\n\n"
+                    f"탐지에 걸린 시간은 {execution_time:.2f}초 입니다."
+                )
+            elif self.only_car and not self.only_person:
+                message = (
+                    f"{folder_status}\n\n"
+                    f"선택한 사진파일 총 {total_images}장 중 {self.total_cars_detected}명 탐지되었으며 \n 자동차가 탐지된 파일 수 : {len(detected_files)}개\n"
+                    f"탐지된 파일(원본 및 결과파일)은 detected_files 폴더에 저장되었습니다.\n\n"
+                    f"탐지에 걸린 시간은 {execution_time:.2f}초 입니다."
+                )    
+            elif self.only_person and self.only_car:
+                message = (
+                    f"{folder_status}\n\n"
+                    f"선택한 사진파일 총 {total_images}장 중 객체(사람: {self.total_people_detected}명, 자동차: {self.total_cars_detected}대)가 \n탐지된 파일 수 : {len(detected_files)}개\n"
+                    f"탐지된 파일(원본 및 결과파일)은 detected_files 폴더에 저장되었습니다.\n\n"
+                    f"탐지에 걸린 시간은 {execution_time:.2f}초 입니다."
+                )    
+        else:
+            message = (
+                f"{folder_status}\n\n"
+                f"사진에서 사람이 탐지되지 않았습니다."
+            )
+        
+        QMessageBox.information(
+            None, "AI 객체 탐지 완료 with Stay Up", message
+        )        
         
 
     def submit(self):       
@@ -207,7 +310,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         model = YOLO(self.datasize)
                 # 결과를 저장할 변수 초기화
         detected_files = []  # 'person'이 감지된 파일 이름을 저장
-        total_people_detected = 0  # 전체 감지된 'person'의 개수
+
         
         # 새 폴더 생성 및 상태 표시
         output_folder = "detected_files"
@@ -243,13 +346,13 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 if os.path.isdir(source):  # 폴더인 경우
                     files_in_folder = [str(file) for file in Path(source).glob("*") if file.is_file()]
                     for file in files_in_folder:
-                        self.process_file(model, file, detected_files, total_people_detected, output_folder)
+                        self.process_file(model, file, detected_files, output_folder)
                         processed_count += 1
                         progress_dialog.setValue(processed_count)
                         progress_dialog.setLabelText(
                             f"사진파일에 대한 AI객체탐지가 진행중입니다...\n\n {processed_count} / {self.file_count}")
                 elif os.path.isfile(source):  # 파일인 경우
-                    self.process_file(model, source, detected_files, total_people_detected, output_folder)
+                    self.process_file(model, source, detected_files, output_folder)
                     processed_count += 1
                     progress_dialog.setValue(processed_count)
                     progress_dialog.setLabelText(
@@ -265,25 +368,27 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             
             end_time = time.time()  # 종료 시간 기록
             execution_time = end_time - start_time  # 실행 시간 계산
-            print(f"총 탐지파일 {image_count}장 중 {len(detected_files)}개 사람탐지, 실행 시간: {execution_time} 초")
+            print(f"총 탐지파일 {image_count}장 중 {len(detected_files)}개 객체탐지, 실행 시간: {execution_time} 초")
             # 결과 알림
             self.display_results(image_count, sources, detected_files, folder_status, execution_time)
                         # 예/아니오 확인 메시지 박스
-            reply = QMessageBox.question(
-                self,
-                "GPS 정보 처리",
-                "GPS 정보 분석을 실행하시겠습니까?",
-                QMessageBox.Yes | QMessageBox.No,
-                QMessageBox.No
-            )
+            # 객체가 탐지된 경우에만 GPS 분석 실행
+            if len(detected_files) > 0:
+                reply = QMessageBox.question(
+                    self,
+                    "GPS 정보 처리",
+                    "GPS 정보 분석을 실행하시겠습니까?",
+                    QMessageBox.Yes | QMessageBox.No,
+                    QMessageBox.No
+                )
 
-            if reply == QMessageBox.Yes:
-                # “예” 버튼 클릭 시 실행
-                gps2.process_images_in_folder(output_folder)# gps2.py의 함수 호출
+                if reply == QMessageBox.Yes:
+                    # “예” 버튼 클릭 시 실행
+                    gps2.process_images_in_folder(output_folder)# gps2.py의 함수 호출
             else:
-                # “아니오” 버튼 클릭 시 실행되지 않음
-                pass
+                print("탐지된 객체가 없어 GPS 분석을 생략합니다.")
             
+
 
 
         elif self.source == '영상':
@@ -313,98 +418,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             execution_time = end_time - start_time  # 실행 시간 계산
             print(f"실행 시간: {execution_time} 초")        
 
-
-    def process_file(self, model, source, detected_files, total_people_detected, total_cars_detected, output_folder):        
-        """단일 파일에 대해 YOLO 모델을 실행하고 원본 및 탐지 결과 파일 복사"""
-        results = model(source, stream=True, imgsz=self.imgsz, save=True, show=False, conf=self.percentage, device=self.device, classes=self.classes_to_detect)
-
-        for result in results:
-            detected_classes = result.names
-            detected_ids = result.boxes.cls
-
-            # 탐지 결과 계산
-            people_count = 0
-            car_count = 0
-
-            if self.only_person and not self.only_car:
-                # '사람만 탐지' 활성화 시
-                people_count = len([cls_id for cls_id in detected_ids if detected_classes[int(cls_id)] == 'person'])
-            elif self.only_car and not self.only_person:
-                # '자동차만 탐지' 활성화 시
-                car_count = len([cls_id for cls_id in detected_ids if detected_classes[int(cls_id)] == 'car'])
-            elif self.only_person and self.only_car:
-                # '사람 및 자동차 탐지' 활성화 시
-                people_count = len([cls_id for cls_id in detected_ids if detected_classes[int(cls_id)] == 'person'])
-                car_count = len([cls_id for cls_id in detected_ids if detected_classes[int(cls_id)] == 'car'])
-
-            if people_count > 0 and car_count > 0:
-                print(f"{people_count}명의 사람과 {car_count}대의 자동차가 {source}에서 탐지되었습니다.")
-                total_people_detected += people_count
-                total_cars_detected += car_count
-                detected_files.append(source)
-            elif people_count > 0 and car_count == 0:
-                print(f"{people_count}명의 사람이 {source}에서 탐지되었습니다.")
-                total_people_detected += people_count
-                total_cars_detected += car_count
-                detected_files.append(source)  
-            elif people_count == 0 and car_count > 0:
-                print(f"{car_count}대의 자동차가 {source}에서 탐지되었습니다.")
-                total_people_detected += people_count
-                total_cars_detected += car_count
-                detected_files.append(source)  
-
-                # 1. 원본 파일 복사
-                original_destination = os.path.join(output_folder, "original_" + os.path.basename(source))
-                shutil.copy(source, original_destination)
-
-                # 2.   탐지 결과 파일 복사
-                result_dir = Path(result.save_dir)  # 현재 결과가 저장된 폴더
-                result_file = result_dir / os.path.basename(source)  # 결과 파일 경로
-
-                if result_file.exists():
-                    result_destination = os.path.join(output_folder, "detected_" + os.path.basename(source))
-                    shutil.copy(result_file, result_destination)
-                else:
-                    print(f"탐지 결과 파일을 찾을 수 없습니다: {result_file}")
-
-
-
-
-
-    def display_results(self, image_count, sources, detected_files, folder_status, execution_time, total_people_detected, total_cars_detected):
-        """탐지 결과를 팝업 메시지로 표시"""
-        if detected_files:
-            total_images = image_count if isinstance(self.juso, Path) else len(sources)
-            if self.only_person and not self.only_car:
-                message = (
-                    f"{folder_status}\n\n"
-                    f"선택한 사진파일 총 {total_images}장 중 사람이 탐지된 파일 수 : {len(detected_files)}개\n"
-                    f"탐지된 파일(원본 및 결과파일)은 detected_files 폴더에 저장되었습니다.\n\n"
-                    f"탐지에 걸린 시간은 {execution_time:.2f}초 입니다."
-                )
-            elif self.only_car and not self.only_person:
-                message = (
-                    f"{folder_status}\n\n"
-                    f"선택한 사진파일 총 {total_images}장 중 자동차가 탐지된 파일 수 : {len(detected_files)}개\n"
-                    f"탐지된 파일(원본 및 결과파일)은 detected_files 폴더에 저장되었습니다.\n\n"
-                    f"탐지에 걸린 시간은 {execution_time:.2f}초 입니다."
-                )    
-            elif self.only_person and self.only_car:
-                message = (
-                    f"{folder_status}\n\n"
-                    f"선택한 사진파일 총 {total_images}장 중 객체(사람: {total_people_detected}명, 자동차: {total_cars_detected}대)가 탐지된 파일 수 : {len(detected_files)}개\n"
-                    f"탐지된 파일(원본 및 결과파일)은 detected_files 폴더에 저장되었습니다.\n\n"
-                    f"탐지에 걸린 시간은 {execution_time:.2f}초 입니다."
-                )    
-        else:
-            message = (
-                f"{folder_status}\n\n"
-                f"사진에서 사람이 탐지되지 않았습니다."
-            )
-        
-        QMessageBox.information(
-            None, "AI 객체 탐지 완료 with Stay Up", message
-        )        
 
 def run_app():
     """GUI를 실행하고 인증을 처리하는 메인 로직 함수"""

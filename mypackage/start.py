@@ -4,7 +4,7 @@ from PySide6.QtWidgets import QMessageBox, QInputDialog
 import sys
 
 # 유효기간 및 인증 키 설정
-EXPIRATION_DATE = datetime(2025, 2, 28)
+EXPIRATION_DATE = datetime(2025, 7, 30)
 VALID_KEY = "stayup"
 MAX_ATTEMPTS = 3  # 최대 인증 시도 횟수
 
@@ -13,7 +13,7 @@ def authenticate():
     print("프로그램을 실행하고 있습니다")
     current_date = datetime.now()
     if current_date > EXPIRATION_DATE:
-        QMessageBox.critical(None, "오류", "이 프로그램은 2025년 2월 28일 이후에는 실행되지 않습니다.")
+        QMessageBox.critical(None, "오류", "이 프로그램은 2025년 7월 30일 이후에는 실행되지 않습니다.")
         sys.exit()  # 프로그램 종료
 
     # 인증 키 입력 받기 (최대 3번 시도)
@@ -24,7 +24,11 @@ def authenticate():
         )
         if ok:
             if user_key == VALID_KEY:
-                QMessageBox.information(None, "성공", "인증 성공! AI객체탐지 프로그램을 실행합니다.")
+                QMessageBox.information(
+                    None, 
+                    "성공", 
+                    "<p style='text-align: center;'> 인증 성공! <br> AI객체탐지 프로그램을 실행합니다. <br><br> 이 프로그램은 2025년 7월 30일 이후에는 실행되지 않습니다." 
+                    )
                 return True  # 인증 성공
             else:
                 attempts += 1
