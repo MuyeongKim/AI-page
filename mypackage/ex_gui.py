@@ -1,8 +1,7 @@
-# 24.12.25 13:35 수정판
 # -*- coding: utf-8 -*-
 
 ################################################################################
-## Form generated from reading UI file 'ex-guiaHnMOc.ui'
+## Form generated from reading UI file 'ex-guiMWtxaK.ui'
 ##
 ## Created by: Qt User Interface Compiler version 6.8.1
 ##
@@ -85,11 +84,11 @@ class Ui_MainWindow(object):
         self.pushButton_search.setGeometry(QRect(340, 230, 51, 24))
         self.pushButton_enter = QPushButton(self.centralwidget)
         self.pushButton_enter.setObjectName(u"pushButton_enter")
-        self.pushButton_enter.setGeometry(QRect(140, 390, 101, 41))
+        self.pushButton_enter.setGeometry(QRect(140, 400, 101, 41))
         self.pushButton_enter.setFont(font1)
         self.pushButton_close = QPushButton(self.centralwidget)
         self.pushButton_close.setObjectName(u"pushButton_close")
-        self.pushButton_close.setGeometry(QRect(300, 390, 101, 41))
+        self.pushButton_close.setGeometry(QRect(300, 400, 101, 41))
         self.pushButton_close.setFont(font1)
         self.label_6 = QLabel(self.centralwidget)
         self.label_6.setObjectName(u"label_6")
@@ -101,12 +100,12 @@ class Ui_MainWindow(object):
         self.plainTextEdit.setGeometry(QRect(280, 490, 251, 211))
         self.label_7 = QLabel(self.centralwidget)
         self.label_7.setObjectName(u"label_7")
-        self.label_7.setGeometry(QRect(36, 280, 130, 41))
+        self.label_7.setGeometry(QRect(55, 280, 111, 41))
         self.label_7.setFont(font1)
         self.label_7.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.label_8 = QLabel(self.centralwidget)
         self.label_8.setObjectName(u"label_8")
-        self.label_8.setGeometry(QRect(70, 315, 391, 61))
+        self.label_8.setGeometry(QRect(70, 315, 391, 16))
         font2 = QFont()
         font2.setPointSize(8)
         self.label_8.setFont(font2)
@@ -152,14 +151,14 @@ class Ui_MainWindow(object):
         self.plainTextEdit_2.setGeometry(QRect(20, 490, 231, 211))
         self.checkBox_person = QCheckBox(self.centralwidget)
         self.checkBox_person.setObjectName(u"checkBox_person")
-        self.checkBox_person.setGeometry(QRect(190, 344, 131, 31))
+        self.checkBox_person.setGeometry(QRect(190, 340, 131, 20))
         font3 = QFont()
         font3.setPointSize(12)
         font3.setBold(True)
         self.checkBox_person.setFont(font3)
         self.label_10 = QLabel(self.centralwidget)
         self.label_10.setObjectName(u"label_10")
-        self.label_10.setGeometry(QRect(37, 340, 130, 41))
+        self.label_10.setGeometry(QRect(59, 350, 101, 20))
         self.label_10.setFont(font1)
         self.label_10.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.label_11 = QLabel(self.centralwidget)
@@ -167,6 +166,10 @@ class Ui_MainWindow(object):
         self.label_11.setGeometry(QRect(160, 720, 391, 16))
         self.label_11.setFont(font2)
         self.label_11.setAlignment(Qt.AlignmentFlag.AlignHCenter|Qt.AlignmentFlag.AlignTop)
+        self.checkBox_car = QCheckBox(self.centralwidget)
+        self.checkBox_car.setObjectName(u"checkBox_car")
+        self.checkBox_car.setGeometry(QRect(190, 370, 141, 16))
+        self.checkBox_car.setFont(font3)
         MainWindow.setCentralWidget(self.centralwidget)
         self.statusbar = QStatusBar(MainWindow)
         self.statusbar.setObjectName(u"statusbar")
@@ -178,7 +181,7 @@ class Ui_MainWindow(object):
     # setupUi
 
     def retranslateUi(self, MainWindow):
-        MainWindow.setWindowTitle(QCoreApplication.translate("MainWindow", u"AI\uac1d\uccb4\ud0d0\uc9c0 \ud504\ub85c\uadf8\ub7a8 V24.1225 With Stay Up", None))
+        MainWindow.setWindowTitle(QCoreApplication.translate("MainWindow", u"AI\uac1d\uccb4\ud0d0\uc9c0 \ud504\ub85c\uadf8\ub7a8 V25.0127 With Stay Up", None))
 #if QT_CONFIG(tooltip)
         self.label.setToolTip(QCoreApplication.translate("MainWindow", u"<html><head/><body><p align=\"center\">AI\uac1d\uccb4\ud0d0\uc9c0 \uc2e4\ud589\ud504\ub85c\uadf8\ub7a8</p></body></html>", None))
 #endif // QT_CONFIG(tooltip)
@@ -206,7 +209,7 @@ class Ui_MainWindow(object):
         self.pushButton_enter.setText(QCoreApplication.translate("MainWindow", u"\uc2e4\ud589\ud558\uae30", None))
         self.pushButton_close.setText(QCoreApplication.translate("MainWindow", u"\uc885\ub8cc\ud558\uae30", None))
         self.label_6.setText(QCoreApplication.translate("MainWindow", u"[\uc124\uba85\ucc3d]", None))
-        self.plainTextEdit.setPlainText(QCoreApplication.translate("MainWindow", u"#\ud604\uc7ac 2024\ub144 12\uc6d4 25\uc77c \uc218\uc815\ud310\n"
+        self.plainTextEdit.setPlainText(QCoreApplication.translate("MainWindow", u"#\ud604\uc7ac 2025\ub144 1\uc6d4 27\uc77c \uc218\uc815\ud310\n"
 "\uac1d\uccb4\ud0d0\uc9c0\ubaa8\ub378 Yolo V11 \uc0ac\uc6a9\n"
 "\n"
 "\u203b \uc2e4\ud589\uc815\uc9c0\ub294 \ucf58\uc194\ucc3d\uc5d0\uc11c Ctrl + C \uc785\ub825\n"
@@ -217,8 +220,8 @@ class Ui_MainWindow(object):
 "\n"
 "\n"
 "[\ubb38\uc758]\n"
-"tenmoo@naver.com", None))
-        self.label_7.setText(QCoreApplication.translate("MainWindow", u"4. \uc635\uc158\uc124\uc815", None))
+"tenmoo@naver.com ", None))
+        self.label_7.setText(QCoreApplication.translate("MainWindow", u"4. \uc635 \uc158 \uc124 \uc815", None))
         self.label_8.setText(QCoreApplication.translate("MainWindow", u"\uc635\uc158\ubbf8\uc124\uc815\uc2dc \uae30\ubcf8\uac12 : \uc2e0\ub8b0\ub3c4 10%, \uc0ac\uc6a9\uc7a5\uce58 GPU, \ud574\uc0c1\ub3c4 1920", None))
         self.comboBox_percentage.setItemText(0, QCoreApplication.translate("MainWindow", u"\uc2e0\ub8b0\ub3c4", None))
         self.comboBox_percentage.setItemText(1, QCoreApplication.translate("MainWindow", u"5%", None))
@@ -252,7 +255,8 @@ class Ui_MainWindow(object):
 "\n"
 "4. \uc635\uc158\uac12 \uc124\uc815 \ud6c4 \uc2e4\ud589\ud558\uae30\ub97c \ub204\ub974\uba74 \ucf58\uc194\ucc3d\uc5d0 \uc2e4\ud589\uacfc\uc815\uacfc \uacb0\uacfc\uac12\uc774 \ub098\ud0c0\ub09c\ub2e4.", None))
         self.checkBox_person.setText(QCoreApplication.translate("MainWindow", u"\"\uc0ac\ub78c\"\ub9cc \ud0d0\uc9c0", None))
-        self.label_10.setText(QCoreApplication.translate("MainWindow", u"5. \ud0d0\uc9c0\uc124\uc815", None))
+        self.label_10.setText(QCoreApplication.translate("MainWindow", u"5. \ud0d0 \uc9c0 \uc124 \uc815", None))
         self.label_11.setText(QCoreApplication.translate("MainWindow", u"This program utilizes Ultralytics YOLO, licensed under GNU GPL v3.", None))
+        self.checkBox_car.setText(QCoreApplication.translate("MainWindow", u"\"\uc790\ub3d9\ucc28\"\ub9cc \ud0d0\uc9c0", None))
     # retranslateUi
 

@@ -17,7 +17,7 @@
    <enum>Qt::ContextMenuPolicy::PreventContextMenu</enum>
   </property>
   <property name="windowTitle">
-   <string>AI객체탐지 프로그램 V24.1225 With Stay Up</string>
+   <string>AI객체탐지 프로그램 V25.0127 With Stay Up</string>
   </property>
   <widget class="QWidget" name="centralwidget">
    <widget class="QLabel" name="label">
@@ -236,7 +236,7 @@
     <property name="geometry">
      <rect>
       <x>140</x>
-      <y>390</y>
+      <y>400</y>
       <width>101</width>
       <height>41</height>
      </rect>
@@ -254,7 +254,7 @@
     <property name="geometry">
      <rect>
       <x>300</x>
-      <y>390</y>
+      <y>400</y>
       <width>101</width>
       <height>41</height>
      </rect>
@@ -299,7 +299,7 @@
      </rect>
     </property>
     <property name="plainText">
-     <string>#현재 2024년 12월 25일 수정판
+     <string>#현재 2025년 1월 27일 수정판
 객체탐지모델 Yolo V11 사용
 
 ※ 실행정지는 콘솔창에서 Ctrl + C 입력
@@ -316,9 +316,9 @@ tenmoo@naver.com </string>
    <widget class="QLabel" name="label_7">
     <property name="geometry">
      <rect>
-      <x>36</x>
+      <x>55</x>
       <y>280</y>
-      <width>130</width>
+      <width>111</width>
       <height>41</height>
      </rect>
     </property>
@@ -328,7 +328,7 @@ tenmoo@naver.com </string>
      </font>
     </property>
     <property name="text">
-     <string>4. 옵션설정</string>
+     <string>4. 옵 션 설 정</string>
     </property>
     <property name="alignment">
      <set>Qt::AlignmentFlag::AlignCenter</set>
@@ -340,7 +340,7 @@ tenmoo@naver.com </string>
       <x>70</x>
       <y>315</y>
       <width>391</width>
-      <height>61</height>
+      <height>16</height>
      </rect>
     </property>
     <property name="font">
@@ -537,9 +537,9 @@ tenmoo@naver.com </string>
     <property name="geometry">
      <rect>
       <x>190</x>
-      <y>344</y>
+      <y>340</y>
       <width>131</width>
-      <height>31</height>
+      <height>20</height>
      </rect>
     </property>
     <property name="font">
@@ -555,10 +555,10 @@ tenmoo@naver.com </string>
    <widget class="QLabel" name="label_10">
     <property name="geometry">
      <rect>
-      <x>37</x>
-      <y>340</y>
-      <width>130</width>
-      <height>41</height>
+      <x>59</x>
+      <y>350</y>
+      <width>101</width>
+      <height>20</height>
      </rect>
     </property>
     <property name="font">
@@ -567,7 +567,7 @@ tenmoo@naver.com </string>
      </font>
     </property>
     <property name="text">
-     <string>5. 탐지설정</string>
+     <string>5. 탐 지 설 정</string>
     </property>
     <property name="alignment">
      <set>Qt::AlignmentFlag::AlignCenter</set>
@@ -592,6 +592,25 @@ tenmoo@naver.com </string>
     </property>
     <property name="alignment">
      <set>Qt::AlignmentFlag::AlignHCenter|Qt::AlignmentFlag::AlignTop</set>
+    </property>
+   </widget>
+   <widget class="QCheckBox" name="checkBox_car">
+    <property name="geometry">
+     <rect>
+      <x>190</x>
+      <y>370</y>
+      <width>141</width>
+      <height>16</height>
+     </rect>
+    </property>
+    <property name="font">
+     <font>
+      <pointsize>12</pointsize>
+      <bold>true</bold>
+     </font>
+    </property>
+    <property name="text">
+     <string>&quot;자동차&quot;만 탐지</string>
     </property>
    </widget>
   </widget>

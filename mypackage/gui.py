@@ -1,9 +1,10 @@
-# 24.12.25 13:35 수정판
+# 25.01.27 14:35 수정판
 #-----------------------------------------------------------------------------
-# 새로고침 일자 : 2024.12.25 오후 12시50분
+# 새로고침 일자 : 2025.01.27 오후 14시00분
 # 수정사항 : GUI코드 최종 구성 / 편의사항 구성추가예정
 # 인증창 추가, 사람 객체감지시 팝업알람 추가 및 별도폴더에 복사기능 추가
 # 진행률 창 표시, 객체탐지모델 추가(예정), 캡쳐보드,영상 사람만탐지 적용
+# 25.01.27 실시간선택시 저장기능 off, 사람-자동차 선택가능하도록 수정
 #-----------------------------------------------------------------------------
 
 from mypackage import start
@@ -35,6 +36,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.comboBox_device.currentIndexChanged.connect(self.option_device) # 옵션 장치 선택
         self.comboBox_imgsz.currentIndexChanged.connect(self.option_imgsz) # 옵션 장치 선택
         self.checkBox_person.stateChanged.connect(self.update_only_person) # 사람만 탐지 체크박스 선택
+        self.checkBox_car.stateChanged.connect(self.update_only_car) # 자동차만 탐지 체크박스 선택
         # 초기화
         # 사용자 입력 주소를 저장할 변수
         self.juso = None
@@ -44,10 +46,32 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.buffer = True
         self.only_person = False
 
+    def update_detection_options(self):
+        """체크박스 상태에 따라 탐지 옵션을 업데이트"""
+        if self.only_person and self.only_car:
+            self.classes_to_detect = [0, 2, 5, 7]  # 사람과 자동차 탐지(자동차, 버스, 트럭)
+            print("사람 및 자동차 탐지 활성화")
+        elif self.only_person:
+            self.classes_to_detect = [0]  # 사람만 탐지
+            print("사람만 탐지 활성화")
+        elif self.only_car:
+            self.classes_to_detect = [2,5,7]  # 자동차만 탐지(자동차, 버스, 트럭)
+            print("자동차만 탐지 활성화")
+        else:
+            self.classes_to_detect = None  # 전체 탐지
+            print("전체 탐지 활성화")
+
     def update_only_person(self, state):
         """체크박스 상태 변경"""
         self.only_person = state == 2  # 체크되면 True, 아니면 False
+        self.update_detection_options()
         print(f"사람만 검색: {self.only_person}")
+
+    def update_only_car(self, state):
+        """체크박스 상태 변경"""
+        self.only_car = state == 2  # 체크되면 True, 아니면 False
+        self.update_detection_options()
+        print(f"사람만 검색: {self.only_car}")        
     
     def exit_application(self):
         if self.confirm_exit():
@@ -264,8 +288,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         elif self.source == '영상':
             source = str(self.juso[0])
-            classes_to_detect = [0] if self.only_person else None  # 'person'만 탐지 또는 전체 탐지
-            results = model(source, imgsz=self.imgsz, stream=True, save=True, show=True, conf=self.percentage, device=self.device, classes=classes_to_detect)  # generator of Results objects
+            results = model(source, imgsz=self.imgsz, stream=True, save=True, show=True, conf=self.percentage, device=self.device, classes=self.classes_to_detect)  # generator of Results objects
 
             for result in results:
                 detected_classes = result.names
@@ -279,8 +302,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         elif self.source == '외부영상(캡쳐보드)':
             # model.predict(0, stream_buffer=True, show=True, conf=self.percentage, device=self.device) #캡쳐보드
-            classes_to_detect = [0] if self.only_person else None  # 'person'만 탐지 또는 전체 탐지
-            results = model(0, imgsz=self.imgsz, stream=True, save=True, show=True, conf=self.percentage, device=self.device, classes=classes_to_detect)  # generator of Results objects
+            results = model(0, imgsz=self.imgsz, stream=True, save=False, show=True, conf=self.percentage, device=self.device, classes=self.classes_to_detect)  # generator of Results objects
 
             for result in results:
                 detected_classes = result.names
@@ -292,28 +314,44 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             print(f"실행 시간: {execution_time} 초")        
 
 
-    def process_file(self, model, source, detected_files, total_people_detected, output_folder):
-        classes_to_detect = [0] if self.only_person else None  # 'person'만 탐지 또는 전체 탐지
-
+    def process_file(self, model, source, detected_files, total_people_detected, total_cars_detected, output_folder):        
         """단일 파일에 대해 YOLO 모델을 실행하고 원본 및 탐지 결과 파일 복사"""
-        results = model(source, stream=True, imgsz=self.imgsz, save=True, show=False, conf=self.percentage, device=self.device, classes=classes_to_detect)
+        results = model(source, stream=True, imgsz=self.imgsz, save=True, show=False, conf=self.percentage, device=self.device, classes=self.classes_to_detect)
 
         for result in results:
             detected_classes = result.names
             detected_ids = result.boxes.cls
 
-            # 'person' 탐지 결과 계산
-            if self.only_person:
-                # '사람만 탐지' 활성화 시, 전체 결과는 이미 'person'만 포함
-                people_count = len(detected_ids)
-            else:
-                # 전체 탐지 시, 'person' 클래스 개수 계산
-                people_count = len([cls_id for cls_id in detected_ids if detected_classes[int(cls_id)] == 'person'])
+            # 탐지 결과 계산
+            people_count = 0
+            car_count = 0
 
-            if people_count > 0:
-                print(f"{people_count}명이 {source}에서 탐지되었습니다.")
+            if self.only_person and not self.only_car:
+                # '사람만 탐지' 활성화 시
+                people_count = len([cls_id for cls_id in detected_ids if detected_classes[int(cls_id)] == 'person'])
+            elif self.only_car and not self.only_person:
+                # '자동차만 탐지' 활성화 시
+                car_count = len([cls_id for cls_id in detected_ids if detected_classes[int(cls_id)] == 'car'])
+            elif self.only_person and self.only_car:
+                # '사람 및 자동차 탐지' 활성화 시
+                people_count = len([cls_id for cls_id in detected_ids if detected_classes[int(cls_id)] == 'person'])
+                car_count = len([cls_id for cls_id in detected_ids if detected_classes[int(cls_id)] == 'car'])
+
+            if people_count > 0 and car_count > 0:
+                print(f"{people_count}명의 사람과 {car_count}대의 자동차가 {source}에서 탐지되었습니다.")
                 total_people_detected += people_count
+                total_cars_detected += car_count
                 detected_files.append(source)
+            elif people_count > 0 and car_count == 0:
+                print(f"{people_count}명의 사람이 {source}에서 탐지되었습니다.")
+                total_people_detected += people_count
+                total_cars_detected += car_count
+                detected_files.append(source)  
+            elif people_count == 0 and car_count > 0:
+                print(f"{car_count}대의 자동차가 {source}에서 탐지되었습니다.")
+                total_people_detected += people_count
+                total_cars_detected += car_count
+                detected_files.append(source)  
 
                 # 1. 원본 파일 복사
                 original_destination = os.path.join(output_folder, "original_" + os.path.basename(source))
@@ -333,16 +371,31 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
 
 
-    def display_results(self, image_count, sources, detected_files, folder_status, execution_time):
+    def display_results(self, image_count, sources, detected_files, folder_status, execution_time, total_people_detected, total_cars_detected):
         """탐지 결과를 팝업 메시지로 표시"""
         if detected_files:
             total_images = image_count if isinstance(self.juso, Path) else len(sources)
-            message = (
-                f"{folder_status}\n\n"
-                f"선택한 사진파일 총 {total_images}장 중 사람이 탐지된 파일 수 : {len(detected_files)}개\n"
-                f"탐지된 파일(원본 및 결과파일)은 detected_files 폴더에 저장되었습니다.\n\n"
-                f"탐지에 걸린 시간은 {execution_time:.2f}초 입니다."
-            )
+            if self.only_person and not self.only_car:
+                message = (
+                    f"{folder_status}\n\n"
+                    f"선택한 사진파일 총 {total_images}장 중 사람이 탐지된 파일 수 : {len(detected_files)}개\n"
+                    f"탐지된 파일(원본 및 결과파일)은 detected_files 폴더에 저장되었습니다.\n\n"
+                    f"탐지에 걸린 시간은 {execution_time:.2f}초 입니다."
+                )
+            elif self.only_car and not self.only_person:
+                message = (
+                    f"{folder_status}\n\n"
+                    f"선택한 사진파일 총 {total_images}장 중 자동차가 탐지된 파일 수 : {len(detected_files)}개\n"
+                    f"탐지된 파일(원본 및 결과파일)은 detected_files 폴더에 저장되었습니다.\n\n"
+                    f"탐지에 걸린 시간은 {execution_time:.2f}초 입니다."
+                )    
+            elif self.only_person and self.only_car:
+                message = (
+                    f"{folder_status}\n\n"
+                    f"선택한 사진파일 총 {total_images}장 중 객체(사람: {total_people_detected}명, 자동차: {total_cars_detected}대)가 탐지된 파일 수 : {len(detected_files)}개\n"
+                    f"탐지된 파일(원본 및 결과파일)은 detected_files 폴더에 저장되었습니다.\n\n"
+                    f"탐지에 걸린 시간은 {execution_time:.2f}초 입니다."
+                )    
         else:
             message = (
                 f"{folder_status}\n\n"
