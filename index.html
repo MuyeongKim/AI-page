@@ -1,128 +1,20 @@
 <!DOCTYPE html>
-<html lang="ko">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI 객체 탐지 프로그램</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 0;
-            background-color: #f9f9f9;
-        }
-        header {
-            background-color: #4CAF50;
-            color: white;
-            padding: 10px 20px;
-            text-align: center;
-        }
-        nav {
-            display: flex;
-            justify-content: center;
-            background-color: #333;
-        }
-        nav a {
-            color: white;
-            padding: 14px 20px;
-            text-decoration: none;
-            text-align: center;
-        }
-        nav a:hover {
-            background-color: #ddd;
-            color: black;
-        }
-        main {
-            padding: 20px;
-        }
-        section {
-            margin-bottom: 20px;
-        }
-        footer {
-            background-color: #333;
-            color: white;
-            text-align: center;
-            padding: 10px;
-            position: relative;
-            bottom: 0;
-            width: 100%;
-        }
-        .button {
-            background-color: #4CAF50;
-            color: white;
-            padding: 10px 20px;
-            text-decoration: none;
-            border-radius: 5px;
-            display: inline-block;
-            margin-top: 10px;
-        }
-        .button:hover {
-            background-color: #45a049;
-        }
-        @media (max-width: 600px) {
-            nav {
-                flex-direction: column;
-            }
-            .button {
-                width: 100%;
-                text-align: center;
-            }
-        }
-        ul li {
-            margin-left: 20px;
-        }
-    </style>
-</head>
-<body>
+<html>
+  <head>
 
-<header>
-    <h1>AI 객체 탐지 프로그램</h1>
-    <p>YOLO 객체 탐지 기술을 활용하여 효율적이고 정확한 객체분석을 지원합니다.</p>
-</header>
+  <!-- meta -->
+  <meta property="og:url" content="stayup-ai.com">
+  <meta property="og:title" content="AI객체탐지 프로그램 with Stay-Up">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="https://imgproxy.gamma.app/resize/quality:80/resizing_type:fit/width:1200/https://cdn.gamma.app/whr9hedlw6uqznt/fa88c93eca014d6ba705fdee1ddcbaf2/original/seuteieob-makeu-jeonmundeurontim.jpg">
+  <meta property="og:description" content="AI객체탐지 프로그램 홈페이지">
+    <meta
+      http-equiv="refresh"
+      content="0; url=https://ai--gwxed5y.gamma.site/"
+    />
+  </head>
+  <body>
 
-<nav>
-    <a href="#about">프로그램 소개</a>
-    <a href="#download">다운로드</a>
-    <a href="#releases">릴리스 노트</a>
-</nav>
-
-<main>
-    <section id="about">
-        <h2>프로그램 소개</h2>
-        <p>이 프로그램은 딥러닝 기반의 AI 엔진(YOLO)을 사용하여 이미지와 동영상에서 객체를 빠르고 정확하게 탐지합니다.</p>
-        <p>구조출동(실종자 수색) 시 실시간 영상 및 사진을 쉽게 분석할 수 있도록 제작되었습니다.</p>
-    </section>
-
-    <section id="download">
-        <h2>다운로드</h2>
-        <p>최신 버전의 객체 탐지 프로그램을 다운로드하려면 아래 버튼을 클릭하세요: (V24.12.25)</p>
-        <p>최초 실행시 최소 15초에서 최대 3분 이상 소요될 수도 있습니다.</p>
-        <a href="https://drive.google.com/file/d/1NgTo9rvCmS_WyZB6qWv_60CqzkNBGtgm/view?usp=drive_link" class="button">
-            &#x1F4BE; 다운로드(디렉토리)*추천
-        </a>        <a href="https://drive.google.com/file/d/1zxj7XfSWV_58rHBDEWaaRB7JYL4TPaPb/view?usp=drive_link" class="button">
-            &#x1F4BE; 다운로드(단일파일)
-        </a>
-    </section>
-
-    <section id="releases">
-        <h2>릴리스 노트</h2>
-        <p>업데이트 내역과 개선 사항입니다:</p>
-        <ul>
-            <li><strong>v24.12.25</strong> - 실행 간 발생되는 다수 오류 수정</li>
-            <li><strong>v24.12.14</strong> - 탐지된 위치(사진 GPS값 추출), 탐지 종료 시 지도에 자동으로 탐지 위치 표시 기능 추가</li>
-            <li><strong>v24.12.01</strong> - 진행률 창 표시, 객체 탐지 모델 추가</li>
-            <li><strong>v24.11.20</strong> - 인증창 추가, 유효기간 연장 코드 추가</li>
-            <li><strong>v24.10.31</strong> - 용량 최적화를 통해 프로그램 효율성 향상</li>
-            <li><strong>v24.05.13</strong> - GUI 방식으로 재코딩하여 사용자 친화적 인터페이스 제공</li>
-            <li><strong>v23.12.12</strong> - 캡처보드를 활용한 실시간 객체 탐지 기능 구현</li>
-        </ul>
-    </section>
-</main>
-
-<footer>
-    <p>"This program utilizes Ultralytics YOLO, licensed under <a href='https://www.gnu.org/licenses/gpl-3.0.en.html'>GNU GPL v3</a>."</p>
-    <p>&copy; 2024 AI 객체 탐지 프로그램은 Ultralytics YOLO를 활용해서 제작되었습니다.</p>
-</footer>
-
-</body>
+    <img src="https://imgproxy.gamma.app/resize/quality:80/resizing_type:fit/width:1200/https://cdn.gamma.app/whr9hedlw6uqznt/fa88c93eca014d6ba705fdee1ddcbaf2/original/seuteieob-makeu-jeonmundeurontim.jpg" class="reset-max-width-with-margins css-132qwya" data-layout-cut-fg="right">
+  </body>
 </html>
