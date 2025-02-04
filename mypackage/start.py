@@ -4,7 +4,7 @@ from PySide6.QtWidgets import QMessageBox, QInputDialog
 import sys
 
 # 유효기간 및 인증 키 설정
-EXPIRATION_DATE = datetime(2025, 7, 30)
+EXPIRATION_DATE = datetime(2025, 7, 31)
 VALID_KEY = "stayup"
 MAX_ATTEMPTS = 3  # 최대 인증 시도 횟수
 
