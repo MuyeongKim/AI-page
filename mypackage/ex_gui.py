@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 ################################################################################
-## Form generated from reading UI file 'ex-guiMWtxaK.ui'
+## Form generated from reading UI file 'ex-guiKdXjHA.ui'
 ##
 ## Created by: Qt User Interface Compiler version 6.8.1
 ##
@@ -233,8 +233,8 @@ class Ui_MainWindow(object):
         self.comboBox_percentage.setItemText(7, QCoreApplication.translate("MainWindow", u"80%", None))
 
         self.comboBox_device.setItemText(0, QCoreApplication.translate("MainWindow", u"\uc0ac\uc6a9\uc7a5\uce58", None))
-        self.comboBox_device.setItemText(1, QCoreApplication.translate("MainWindow", u"CPU(\uae30\ubcf8\uac12)", None))
-        self.comboBox_device.setItemText(2, QCoreApplication.translate("MainWindow", u"CUDA(GPU)", None))
+        self.comboBox_device.setItemText(1, QCoreApplication.translate("MainWindow", u"CPU", None))
+        self.comboBox_device.setItemText(2, QCoreApplication.translate("MainWindow", u"GPU", None))
 
         self.comboBox_imgsz.setItemText(0, QCoreApplication.translate("MainWindow", u"\ud574\uc0c1\ub3c4", None))
         self.comboBox_imgsz.setItemText(1, QCoreApplication.translate("MainWindow", u"640", None))
@@ -259,4 +259,3 @@ class Ui_MainWindow(object):
         self.label_11.setText(QCoreApplication.translate("MainWindow", u"This program utilizes Ultralytics YOLO, licensed under GNU GPL v3.", None))
         self.checkBox_car.setText(QCoreApplication.translate("MainWindow", u"\"\uc790\ub3d9\ucc28\"\ub9cc \ud0d0\uc9c0", None))
     # retranslateUi
-

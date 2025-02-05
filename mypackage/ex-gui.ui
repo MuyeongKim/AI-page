@@ -421,12 +421,12 @@ tenmoo@naver.com </string>
     </item>
     <item>
      <property name="text">
-      <string>CPU(기본값)</string>
+      <string>CPU</string>
      </property>
     </item>
     <item>
      <property name="text">
-      <string>CUDA(GPU)</string>
+      <string>GPU</string>
      </property>
     </item>
    </widget>
