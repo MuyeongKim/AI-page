@@ -4,4 +4,4 @@ import mypackage.check_version as check_version
 
 if __name__ == "__main__":
     check_version.main()
-    gui.run_app()
+    gui.Ui_MainWindow.run_app()
