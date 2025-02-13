@@ -1,20 +1,15 @@
-# 24.12.25 13:35 수정판
-from datetime import datetime
+
 from PySide6.QtWidgets import QMessageBox, QInputDialog
 import sys
 
 # 유효기간 및 인증 키 설정
-EXPIRATION_DATE = datetime(2025, 7, 31)
 VALID_KEY = "stayup"
 MAX_ATTEMPTS = 3  # 최대 인증 시도 횟수
 
 def authenticate():
     # 현재 날짜 확인
     print("프로그램을 실행하고 있습니다")
-    current_date = datetime.now()
-    if current_date > EXPIRATION_DATE:
-        QMessageBox.critical(None, "오류", "이 프로그램은 2025년 7월 30일 이후에는 실행되지 않습니다.")
-        sys.exit()  # 프로그램 종료
+    
 
     # 인증 키 입력 받기 (최대 3번 시도)
     attempts = 0
@@ -27,7 +22,7 @@ def authenticate():
                 QMessageBox.information(
                     None, 
                     "성공", 
-                    "<p style='text-align: center;'> 인증 성공! <br> AI객체탐지 프로그램을 실행합니다. <br><br> 이 프로그램은 2025년 7월 30일 이후에는 실행되지 않습니다." 
+                    "<p style='text-align: center;'> 인증 성공! <br> AI객체탐지 프로그램을 실행합니다. <br><br>  http://stayup-ai.com에서 최신버전을 확인하세요"
                     )
                 return True  # 인증 성공
             else:
