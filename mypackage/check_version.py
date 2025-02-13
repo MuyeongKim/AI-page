@@ -3,7 +3,7 @@ import requests
 from PySide6.QtWidgets import QApplication, QMessageBox
 
 # 현재 버전
-CURRENT_VERSION = "25.0131"
+CURRENT_VERSION = "25.0213"
 
 # 최신 버전 정보 URL
 VERSION_INFO_URL = "https://raw.githubusercontent.com/MuyeongKim/AI-page/refs/heads/main/latest_version.json"
@@ -38,7 +38,7 @@ def version_to_tuple(version):
 def main():
     """최신 버전을 확인하고 알림을 띄운다"""
     app = QApplication(sys.argv)  # ✅ 여기서 한 번만 생성
-
+    print("프로그램 버전을 확인합니다.")
     latest_version = get_latest_version()
     
     if latest_version == "NO_CONNECTION":
