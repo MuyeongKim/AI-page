@@ -47,7 +47,7 @@ def main():
         if version_to_tuple(latest_version) > version_to_tuple(CURRENT_VERSION):
             show_message("업데이트 확인", f"현재 버전: {CURRENT_VERSION}\n최신 버전: {latest_version}\n\n업데이트가 필요합니다!")
         else:
-            show_message("프로그램 버전 확인", f"최신 버전: {latest_version}을 사용 중입니다.")
+            show_message("프로그램 버전 확인", f"최신 버전: {latest_version} <br><br>현재 {latest_version}버전을 사용 중입니다.")
     else:
         show_message("업데이트 오류", "최신 버전 정보를 가져올 수 없습니다.")
 
