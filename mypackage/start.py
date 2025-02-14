@@ -22,7 +22,7 @@ def authenticate():
                 QMessageBox.information(
                     None, 
                     "성공", 
-                    "<p style='text-align: center;'> 인증 성공! <br> AI객체탐지 프로그램을 실행합니다. <br><br>  http://stayup-ai.com에서 최신버전을 확인하세요"
+                    "<p style='text-align: center;'> 인증 성공! <br> AI객체탐지 프로그램을 실행합니다."
                     )
                 return True  # 인증 성공
             else:
