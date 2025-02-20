@@ -242,6 +242,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
     def display_results(self, image_count, sources, detected_files, folder_status, execution_time):
         """탐지 결과를 팝업 메시지로 표시"""
+            # 🔹 기본값 설정
+        message = f"{folder_status}\n\n 총 탐지파일 {image_count}장 중 {len(detected_files)}개 객체탐지, 실행 시간: {execution_time} 초"
         if detected_files:
             total_images = image_count if isinstance(self.juso, Path) else len(sources)
             if self.only_person and not self.only_car:
