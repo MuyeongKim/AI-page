@@ -256,7 +256,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             elif self.only_car and not self.only_person:
                 message = (
                     f"{folder_status}\n\n"
-                    f"선택한 사진파일 총 {total_images}장 중 {self.total_cars_detected}명 탐지되었으며 \n 🚗자동차가 탐지된 파일 수 : {len(detected_files)}개\n"
+                    f"선택한 사진파일 총 {total_images}장 중 {self.total_cars_detected}대가 탐지되었으며 \n 🚗자동차가 탐지된 파일 수 : {len(detected_files)}개\n"
                     f"탐지된 파일(원본 및 결과파일)은 detected_files 폴더에 저장되었습니다.\n\n"
                     f"탐지에 걸린 시간은 {execution_time:.2f}초 입니다."
                 )    
