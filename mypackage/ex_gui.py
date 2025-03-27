@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 ################################################################################
-## Form generated from reading UI file 'ex-guimFnQSy.ui'
+## Form generated from reading UI file 'ex-guieHbHlc.ui'
 ##
 ## Created by: Qt User Interface Compiler version 6.8.1
 ##
@@ -63,7 +63,7 @@ class Ui_MainWindow(object):
         self.comboBox_source.addItem("")
         self.comboBox_source.addItem("")
         self.comboBox_source.setObjectName(u"comboBox_source")
-        self.comboBox_source.setGeometry(QRect(200, 110, 131, 22))
+        self.comboBox_source.setGeometry(QRect(200, 110, 171, 22))
         self.comboBox_data = QComboBox(self.centralwidget)
         self.comboBox_data.addItem("")
         self.comboBox_data.addItem("")
@@ -77,7 +77,7 @@ class Ui_MainWindow(object):
         self.comboBox_data.addItem("")
         self.comboBox_data.addItem("")
         self.comboBox_data.setObjectName(u"comboBox_data")
-        self.comboBox_data.setGeometry(QRect(200, 170, 131, 22))
+        self.comboBox_data.setGeometry(QRect(200, 170, 171, 22))
         self.lineEdit_juso = QLineEdit(self.centralwidget)
         self.lineEdit_juso.setObjectName(u"lineEdit_juso")
         self.lineEdit_juso.setGeometry(QRect(200, 230, 131, 21))
