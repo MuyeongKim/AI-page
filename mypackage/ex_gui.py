@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 ################################################################################
-## Form generated from reading UI file 'ex-guicuoKTX.ui'
+## Form generated from reading UI file 'ex-guimFnQSy.ui'
 ##
 ## Created by: Qt User Interface Compiler version 6.8.1
 ##
@@ -202,13 +202,13 @@ class Ui_MainWindow(object):
         self.comboBox_source.setItemText(3, QCoreApplication.translate("MainWindow", u"\uc601\uc0c1", None))
 
         self.comboBox_data.setItemText(0, QCoreApplication.translate("MainWindow", u"\uc120\ud0dd\ud558\uc138\uc694", None))
-        self.comboBox_data.setItemText(1, QCoreApplication.translate("MainWindow", u"\ucd5c\ub300(\ucd94\ucc9c)", None))
-        self.comboBox_data.setItemText(2, QCoreApplication.translate("MainWindow", u"\ub300", None))
-        self.comboBox_data.setItemText(3, QCoreApplication.translate("MainWindow", u"\uc911", None))
-        self.comboBox_data.setItemText(4, QCoreApplication.translate("MainWindow", u"\uc18c", None))
-        self.comboBox_data.setItemText(5, QCoreApplication.translate("MainWindow", u"\ucd5c\uc18c", None))
-        self.comboBox_data.setItemText(6, QCoreApplication.translate("MainWindow", u"Yolo V12(\ucd5c\ub300)", None))
-        self.comboBox_data.setItemText(7, QCoreApplication.translate("MainWindow", u"Yolo V12(\ucd5c\uc18c)", None))
+        self.comboBox_data.setItemText(1, QCoreApplication.translate("MainWindow", u"YoloV11_\ucd5c\ub300(\ucd94\ucc9c)", None))
+        self.comboBox_data.setItemText(2, QCoreApplication.translate("MainWindow", u"YoloV11_\ub300", None))
+        self.comboBox_data.setItemText(3, QCoreApplication.translate("MainWindow", u"YoloV11_\uc911", None))
+        self.comboBox_data.setItemText(4, QCoreApplication.translate("MainWindow", u"YoloV11_\uc18c", None))
+        self.comboBox_data.setItemText(5, QCoreApplication.translate("MainWindow", u"YoloV11_\ucd5c\uc18c", None))
+        self.comboBox_data.setItemText(6, QCoreApplication.translate("MainWindow", u"YoloV12(\ucd5c\ub300)", None))
+        self.comboBox_data.setItemText(7, QCoreApplication.translate("MainWindow", u"YoloV12(\ucd5c\uc18c)", None))
         self.comboBox_data.setItemText(8, QCoreApplication.translate("MainWindow", u"YoloV8(\ucd5c\ub300)", None))
         self.comboBox_data.setItemText(9, QCoreApplication.translate("MainWindow", u"VisDrone(\uc608\uc815)", None))
         self.comboBox_data.setItemText(10, QCoreApplication.translate("MainWindow", u"\ud654\uc5fc\uc804\uc6a9\ud0d0\uc9c0(\uc608\uc815)", None))

@@ -170,37 +170,37 @@
     </item>
     <item>
      <property name="text">
-      <string>최대(추천)</string>
+      <string>YoloV11_최대(추천)</string>
      </property>
     </item>
     <item>
      <property name="text">
-      <string>대</string>
+      <string>YoloV11_대</string>
      </property>
     </item>
     <item>
      <property name="text">
-      <string>중</string>
+      <string>YoloV11_중</string>
      </property>
     </item>
     <item>
      <property name="text">
-      <string>소</string>
+      <string>YoloV11_소</string>
      </property>
     </item>
     <item>
      <property name="text">
-      <string>최소</string>
+      <string>YoloV11_최소</string>
      </property>
     </item>
     <item>
      <property name="text">
-      <string>Yolo V12(최대)</string>
+      <string>YoloV12(최대)</string>
      </property>
     </item>
     <item>
      <property name="text">
-      <string>Yolo V12(최소)</string>
+      <string>YoloV12(최소)</string>
      </property>
     </item>
     <item>
