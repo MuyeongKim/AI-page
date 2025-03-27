@@ -113,7 +113,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         if selection == "선택하세요":
             return ""
         else:
-            size_dict = {'최대(추천)' : 'yolo11x.pt', '대': 'yolo11l.pt', '중': 'yolo11m.pt', '소': 'yolo11s.pt', '최소': 'yolo11n.pt', 'YoloV8(최대)': 'yolov8x.pt', 'VisDrone(예정)': 'visdrone.pt', '화염전용탐지(예정)' :'fire_detect.py'}
+            size_dict = {'최대(추천)' : 'yolo11x.pt', '대': 'yolo11l.pt', '중': 'yolo11m.pt', '소': 'yolo11s.pt', '최소': 'yolo11n.pt', 'Yolo V12(최대)': 'yolo12x.pt', 'Yolo V12(최소)': 'yolo12n.pt', 'YoloV8(최대)': 'yolov8x.pt', 'VisDrone(예정)': 'visdrone.pt', '화염전용탐지(예정)' :'fire_detect.py'}
             self.datasize = size_dict[selection]   
         print(self.datasize)            
 
