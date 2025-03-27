@@ -1,9 +1,9 @@
 {
-    "version": "25.0213",
-    "release_date": "2025-01-31",
+    "version": "25.0327",
+    "release_date": "2025-03-27",
     "download_url": "https://stayup-ai.com",
     "changelog": [
-      "새로운 기능 추가: 자동차탐색 선택코드 추가",
-      "성능 개선: 버전확인코드 추가"
+      "새로운 기능 추가: 버전변경, Yolo V12추가가",
+      
     ]
   }

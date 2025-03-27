@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 
 ################################################################################
-## Form generated from reading UI file 'ex-guiMLCAbs.ui'
+## Form generated from reading UI file 'ex-guicuoKTX.ui'
 ##
-## Created by: Qt User Interface Compiler version 6.8.2
+## Created by: Qt User Interface Compiler version 6.8.1
 ##
 ## WARNING! All changes made in this file will be lost when recompiling UI file!
 ################################################################################
@@ -65,6 +65,8 @@ class Ui_MainWindow(object):
         self.comboBox_source.setObjectName(u"comboBox_source")
         self.comboBox_source.setGeometry(QRect(200, 110, 131, 22))
         self.comboBox_data = QComboBox(self.centralwidget)
+        self.comboBox_data.addItem("")
+        self.comboBox_data.addItem("")
         self.comboBox_data.addItem("")
         self.comboBox_data.addItem("")
         self.comboBox_data.addItem("")
@@ -170,6 +172,10 @@ class Ui_MainWindow(object):
         self.checkBox_car.setObjectName(u"checkBox_car")
         self.checkBox_car.setGeometry(QRect(190, 370, 141, 16))
         self.checkBox_car.setFont(font3)
+        self.label_12 = QLabel(self.centralwidget)
+        self.label_12.setObjectName(u"label_12")
+        self.label_12.setGeometry(QRect(420, 110, 101, 101))
+        self.label_12.setPixmap(QPixmap(u"../../../Users/tenmo/OneDrive/\ubc14\ud0d5 \ud654\uba74/\uc2a4\ud14c\uc774\uc5c5 \ub9c8\ud06c(\uc804\ubb38\ub4dc\ub860\ud300)100px.jpg"))
         MainWindow.setCentralWidget(self.centralwidget)
         self.statusbar = QStatusBar(MainWindow)
         self.statusbar.setObjectName(u"statusbar")
@@ -181,7 +187,7 @@ class Ui_MainWindow(object):
     # setupUi
 
     def retranslateUi(self, MainWindow):
-        MainWindow.setWindowTitle(QCoreApplication.translate("MainWindow", u"AI\uac1d\uccb4\ud0d0\uc9c0 \ud504\ub85c\uadf8\ub7a8 V25.0213 With Stay Up", None))
+        MainWindow.setWindowTitle(QCoreApplication.translate("MainWindow", u"AI\uac1d\uccb4\ud0d0\uc9c0 \ud504\ub85c\uadf8\ub7a8 V25.0327 With Stay Up", None))
 #if QT_CONFIG(tooltip)
         self.label.setToolTip(QCoreApplication.translate("MainWindow", u"<html><head/><body><p align=\"center\">AI\uac1d\uccb4\ud0d0\uc9c0 \uc2e4\ud589\ud504\ub85c\uadf8\ub7a8</p></body></html>", None))
 #endif // QT_CONFIG(tooltip)
@@ -201,16 +207,18 @@ class Ui_MainWindow(object):
         self.comboBox_data.setItemText(3, QCoreApplication.translate("MainWindow", u"\uc911", None))
         self.comboBox_data.setItemText(4, QCoreApplication.translate("MainWindow", u"\uc18c", None))
         self.comboBox_data.setItemText(5, QCoreApplication.translate("MainWindow", u"\ucd5c\uc18c", None))
-        self.comboBox_data.setItemText(6, QCoreApplication.translate("MainWindow", u"YoloV8(\ucd5c\ub300)", None))
-        self.comboBox_data.setItemText(7, QCoreApplication.translate("MainWindow", u"VisDrone(\uc608\uc815)", None))
-        self.comboBox_data.setItemText(8, QCoreApplication.translate("MainWindow", u"\ud654\uc5fc\uc804\uc6a9\ud0d0\uc9c0(\uc608\uc815)", None))
+        self.comboBox_data.setItemText(6, QCoreApplication.translate("MainWindow", u"Yolo V12(\ucd5c\ub300)", None))
+        self.comboBox_data.setItemText(7, QCoreApplication.translate("MainWindow", u"Yolo V12(\ucd5c\uc18c)", None))
+        self.comboBox_data.setItemText(8, QCoreApplication.translate("MainWindow", u"YoloV8(\ucd5c\ub300)", None))
+        self.comboBox_data.setItemText(9, QCoreApplication.translate("MainWindow", u"VisDrone(\uc608\uc815)", None))
+        self.comboBox_data.setItemText(10, QCoreApplication.translate("MainWindow", u"\ud654\uc5fc\uc804\uc6a9\ud0d0\uc9c0(\uc608\uc815)", None))
 
         self.pushButton_search.setText(QCoreApplication.translate("MainWindow", u"\ud30c\uc77c", None))
         self.pushButton_enter.setText(QCoreApplication.translate("MainWindow", u"\uc2e4\ud589\ud558\uae30", None))
         self.pushButton_close.setText(QCoreApplication.translate("MainWindow", u"\uc885\ub8cc\ud558\uae30", None))
         self.label_6.setText(QCoreApplication.translate("MainWindow", u"[\uc124\uba85\ucc3d]", None))
-        self.plainTextEdit.setPlainText(QCoreApplication.translate("MainWindow", u"#\ud604\uc7ac 2025\ub144 2\uc6d4 13\uc77c \uc218\uc815\ud310\n"
-"\uac1d\uccb4\ud0d0\uc9c0\ubaa8\ub378 Yolo V11 \uc0ac\uc6a9\n"
+        self.plainTextEdit.setPlainText(QCoreApplication.translate("MainWindow", u"#\ud604\uc7ac 2025\ub144 3\uc6d4 27\uc77c \uc218\uc815\ud310\n"
+"\uac1d\uccb4\ud0d0\uc9c0\ubaa8\ub378 Yolo V11 / V12 \ucd94\uac00\n"
 "\n"
 "\u203b \uc2e4\ud589\uc815\uc9c0\ub294 \ucf58\uc194\ucc3d\uc5d0\uc11c Ctrl + C \uc785\ub825\n"
 "\u203b Cuda\ub294 \uadf8\ub798\ud53d\uce74\ub4dc \uc720\ubb34\uc5d0 \ub530\ub77c \uc0ac\uc6a9\n"
@@ -258,5 +266,6 @@ class Ui_MainWindow(object):
         self.label_10.setText(QCoreApplication.translate("MainWindow", u"5. \ud0d0 \uc9c0 \uc124 \uc815", None))
         self.label_11.setText(QCoreApplication.translate("MainWindow", u"This program utilizes Ultralytics YOLO, licensed under GNU GPL v3.", None))
         self.checkBox_car.setText(QCoreApplication.translate("MainWindow", u"\"\uc790\ub3d9\ucc28\"\ub9cc \ud0d0\uc9c0", None))
+        self.label_12.setText("")
     # retranslateUi
 

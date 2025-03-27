@@ -19,7 +19,7 @@ import requests
 from PySide6.QtWidgets import QApplication, QMessageBox
 
 # 현재 버전
-CURRENT_VERSION = "25.0213"
+CURRENT_VERSION = "25.0327"
 
 # 최신 버전 정보 URL
 VERSION_INFO_URL = "https://raw.githubusercontent.com/MuyeongKim/AI-page/refs/heads/main/latest_version.json"

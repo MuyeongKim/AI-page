@@ -17,7 +17,7 @@
    <enum>Qt::ContextMenuPolicy::PreventContextMenu</enum>
   </property>
   <property name="windowTitle">
-   <string>AI객체탐지 프로그램 V25.0213 With Stay Up</string>
+   <string>AI객체탐지 프로그램 V25.0327 With Stay Up</string>
   </property>
   <widget class="QWidget" name="centralwidget">
    <widget class="QLabel" name="label">
@@ -195,6 +195,16 @@
     </item>
     <item>
      <property name="text">
+      <string>Yolo V12(최대)</string>
+     </property>
+    </item>
+    <item>
+     <property name="text">
+      <string>Yolo V12(최소)</string>
+     </property>
+    </item>
+    <item>
+     <property name="text">
       <string>YoloV8(최대)</string>
      </property>
     </item>
@@ -299,8 +309,8 @@
      </rect>
     </property>
     <property name="plainText">
-     <string>#현재 2025년 2월 13일 수정판
-객체탐지모델 Yolo V11 사용
+     <string>#현재 2025년 3월 27일 수정판
+객체탐지모델 Yolo V11 / V12 추가
 
 ※ 실행정지는 콘솔창에서 Ctrl + C 입력
 ※ Cuda는 그래픽카드 유무에 따라 사용
@@ -611,6 +621,22 @@ tenmoo@naver.com </string>
     </property>
     <property name="text">
      <string>&quot;자동차&quot;만 탐지</string>
+    </property>
+   </widget>
+   <widget class="QLabel" name="label_12">
+    <property name="geometry">
+     <rect>
+      <x>420</x>
+      <y>110</y>
+      <width>101</width>
+      <height>101</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string/>
+    </property>
+    <property name="pixmap">
+     <pixmap>../../../Users/tenmo/OneDrive/바탕 화면/스테이업 마크(전문드론팀)100px.jpg</pixmap>
     </property>
    </widget>
   </widget>
