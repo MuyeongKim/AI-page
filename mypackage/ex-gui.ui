@@ -17,7 +17,7 @@
    <enum>Qt::ContextMenuPolicy::PreventContextMenu</enum>
   </property>
   <property name="windowTitle">
-   <string>AI객체탐지 프로그램 V25.0327 With Stay Up</string>
+   <string>AI객체탐지 프로그램 V25.0705 With Stay Up</string>
   </property>
   <widget class="QWidget" name="centralwidget">
    <widget class="QLabel" name="label">
@@ -309,12 +309,12 @@
      </rect>
     </property>
     <property name="plainText">
-     <string>#현재 2025년 3월 27일 수정판
+     <string>#현재 2025년 7월 5일 수정판
 객체탐지모델 Yolo V11 / V12 추가
+FPS, 사람, 자동차 탐지갯수 표시 추가
 
-※ 실행정지는 콘솔창에서 Ctrl + C 입력
+※ 실행정지는 실행창에서 Q버튼 입력
 ※ Cuda는 그래픽카드 유무에 따라 사용
-
 
 
 
