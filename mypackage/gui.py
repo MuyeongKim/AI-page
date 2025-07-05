@@ -13,12 +13,12 @@
 #                               $$$$$$/                    $$/                                #
 #                                                                                             #  
 ###############################################################################################
-
+ 
 
 import sys
 import torch
 import os
-import shutil
+import shutil 
 import time
 from pathlib import Path
 from PySide6.QtWidgets import QApplication, QMainWindow, QFileDialog, QMessageBox, QProgressDialog
@@ -26,6 +26,8 @@ from PySide6.QtCore import Qt
 from ultralytics import YOLO
 from mypackage import start, gps2
 from mypackage.ex_gui import Ui_MainWindow
+import cv2  # OpenCV 추가
+import numpy as np # Numpy 추가
 
 
 class Ui_MainWindow(QMainWindow, Ui_MainWindow):
@@ -279,12 +281,11 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
     def submit(self):       
         start_time = time.time()  # 시작 시간 기록
-
         model = YOLO(self.datasize)
-                # 결과를 저장할 변수 초기화
-        detected_files = []  # 'person'이 감지된 파일 이름을 저장
 
-        
+        # 결과를 저장할 변수 초기화
+        detected_files = []
+
         # 새 폴더 생성 및 상태 표시
         output_folder = "detected_files"
         if not os.path.exists(output_folder):
@@ -292,104 +293,222 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             folder_status = "새로운 폴더(detected_files)가 생성되었습니다."
         else:
             folder_status = "폴더(detected_files)가 이미 존재합니다."
-       
 
-        # 사진 처리 로직
+        # 사진 처리 로직 (이 부분은 변경되지 않았습니다)
         if self.source == '사진':
-            # 파일과 폴더 구분 및 리스트 형태로 통합
             if isinstance(self.juso, Path):
-                sources = [str(self.juso)]  # Path -> str 변환
-                image_count = self.count_image_files(self.juso)  # 폴더의 이미지 파일 개수 계산
+                sources = [str(self.juso)]
+                image_count = self.count_image_files(self.juso)
             elif isinstance(self.juso, list):
                 sources = [str(path) for path in self.juso]
-                image_count = len(sources)  # 파일 목록 길이를 이미지 개수로 설정
+                image_count = len(sources)
             else:
                 QMessageBox.warning(None, "오류", "올바른 파일이나 폴더를 선택해주세요.")
                 return
-            # 진행률 팝업창 초기화
-            progress_dialog = QProgressDialog("사진파일에 대한 AI객체탐지가 진행중입니다...\n\n 0 / {self.file_count}", "취소", 0, self.file_count, self)
+
+            progress_dialog = QProgressDialog(f"사진파일에 대한 AI객체탐지가 진행중입니다...\n\n 0 / {self.file_count}", "취소", 0, self.file_count, self)
             progress_dialog.setWindowTitle("AI객체탐지 진행 확인창")
             progress_dialog.setWindowModality(Qt.ApplicationModal)
-            progress_dialog.setMinimumDuration(0)  # 즉시 표시
+            progress_dialog.setMinimumDuration(0)
             progress_dialog.setValue(0)
             processed_count = 0
-            # 파일 처리
+
             for source in sources:
-                # 폴더일 경우 안에 있는 파일을 모두 가져오기
-                if os.path.isdir(source):  # 폴더인 경우
+                if os.path.isdir(source):
                     files_in_folder = [str(file) for file in Path(source).glob("*") if file.is_file()]
                     for file in files_in_folder:
+                        if progress_dialog.wasCanceled():
+                            break
                         self.process_file(model, file, detected_files, output_folder)
                         processed_count += 1
                         progress_dialog.setValue(processed_count)
-                        progress_dialog.setLabelText(
-                            f"사진파일에 대한 AI객체탐지가 진행중입니다...\n\n {processed_count} / {self.file_count}")
-                elif os.path.isfile(source):  # 파일인 경우
+                        progress_dialog.setLabelText(f"사진파일에 대한 AI객체탐지가 진행중입니다...\n\n {processed_count} / {self.file_count}")
+                    if progress_dialog.wasCanceled():
+                        break
+                elif os.path.isfile(source):
                     self.process_file(model, source, detected_files, output_folder)
                     processed_count += 1
                     progress_dialog.setValue(processed_count)
-                    progress_dialog.setLabelText(
-                        f"사진파일에 대한 AI객체탐지가 진행중입니다...\n\n {processed_count} / {self.file_count}")
+                    progress_dialog.setLabelText(f"사진파일에 대한 AI객체탐지가 진행중입니다...\n\n {processed_count} / {self.file_count}")
                 else:
                     print(f"올바르지 않은 경로: {source}")
-                                # 진행률 업데이트
 
+            progress_dialog.close()
 
-            progress_dialog.close()    
-            
-
-            
-            end_time = time.time()  # 종료 시간 기록
-            execution_time = end_time - start_time  # 실행 시간 계산
+            end_time = time.time()
+            execution_time = end_time - start_time
             print(f"총 탐지파일 {image_count}장 중 {len(detected_files)}개 객체탐지, 실행 시간: {execution_time} 초")
-            # 결과 알림
             self.display_results(image_count, sources, detected_files, folder_status, execution_time)
-                        # 예/아니오 확인 메시지 박스
-            # 객체가 탐지된 경우에만 GPS 분석 실행
-            if len(detected_files) > 0:
-                reply = QMessageBox.question(
-                    self,
-                    "GPS 정보 처리",
-                    "GPS 정보 분석을 실행하시겠습니까?",
-                    QMessageBox.Yes | QMessageBox.No,
-                    QMessageBox.No
-                )
 
+            if len(detected_files) > 0:
+                reply = QMessageBox.question(self, "GPS 정보 처리", "GPS 정보 분석을 실행하시겠습니까?", QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
                 if reply == QMessageBox.Yes:
-                    # “예” 버튼 클릭 시 실행
-                    gps2.process_images_in_folder(output_folder)# gps2.py의 함수 호출
+                    gps2.process_images_in_folder(output_folder)
             else:
                 print("탐지된 객체가 없어 GPS 분석을 생략합니다.")
+
+        # 영상 또는 외부영상(캡쳐보드) 처리 로직 (카운트 로직 수정)
+        elif self.source in ['영상', '외부영상(캡쳐보드)']:
+            cap = None
+            out = None # VideoWriter 객체 초기화
+            should_save_video = (self.source == '영상') # '영상'일 때만 저장하도록 플래그 설정
+
+            try:
+                if self.source == '영상':
+                    source_path = str(self.juso[0]) if isinstance(self.juso, list) else str(self.juso)
+                    # 출력 비디오 파일명 설정 (예: 원본_detected.mp4)
+                    output_video_filename = os.path.join(output_folder, f"detected_{os.path.basename(source_path)}")
+                else: # '외부영상(캡쳐보드)'
+                    source_path = 0
+                    # 웹캠 캡처는 저장하지 않으므로 파일명은 필요 없지만, 변수 할당을 위해 유지
+                    output_video_filename = None 
+
+                cap = cv2.VideoCapture(source_path)
+
+                if not cap.isOpened():
+                    QMessageBox.warning(self, "카메라/영상 로드 실패", "지정된 카메라 또는 영상을 열 수 없습니다. 다른 인덱스를 시도하거나 다른 응용 프로그램이 카메라를 사용 중인지 확인하세요.")
+                    return
+
+                # 원본 영상의 정보 가져오기
+                frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+                frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+                fps = cap.get(cv2.CAP_PROP_FPS)
+
+                # '영상'일 경우에만 출력 비디오 파일 설정
+                if should_save_video:
+                    # MP4V 코덱 사용 (Windows에서는 'mp4v' 대신 'DIVX' 또는 'XVID'도 가능)
+                    fourcc = cv2.VideoWriter_fourcc(*'mp4v') # 비디오 코덱 설정
+                    
+                    # output_folder가 없으면 생성 (이미 위에서 처리했지만 한 번 더 확인)
+                    if not os.path.exists(output_folder):
+                        os.makedirs(output_folder)
+
+                    out = cv2.VideoWriter(output_video_filename, fourcc, fps, (frame_width, frame_height))
+
+                    if not out.isOpened():
+                        QMessageBox.warning(self, "비디오 저장 오류", "출력 비디오 파일을 열 수 없습니다. 코덱 문제가 있을 수 있습니다.")
+                        # 저장하지 못하더라도 계속 탐지는 진행하도록 out을 None으로 설정
+                        out = None 
+                        should_save_video = False # 저장 실패 시 플래그 끄기
+
+                fps_buffer = []
+                fps_buffer_size = 10
+
+                QMessageBox.information(self, "영상 탐지 시작", "영상 탐지를 시작합니다. 'q' 키를 누르면 종료됩니다.")
+
+                while True:
+                    ret, frame = cap.read()
+                    if not ret:
+                        print("프레임을 읽을 수 없습니다. 스트림 종료.")
+                        break
+
+                    # YOLO 모델로 프레임 추론 (verbose=True로 설정하여 콘솔 출력 활성화)
+                    results_list = model(frame, imgsz=self.imgsz, verbose=True, conf=self.percentage, device=self.device, classes=self.classes_to_detect)
+                    
+                    if len(results_list) > 0:
+                        result = results_list[0]
+                        im_array = result.plot() # 탐지 결과를 프레임에 그림
+
+                        # ########## 카운트 로직 시작 ##########
+                        person_count = 0
+                        car_count = 0
+
+                        if result.boxes is not None:
+                            for box in result.boxes:
+                                class_id = int(box.cls.item())
+                                class_name = result.names[class_id]
+                                
+                                if class_name == 'person':
+                                    person_count += 1
+                                elif class_name in ['car', 'bus', 'truck']:
+                                    car_count += 1
+                        # ########## 카운트 로직 끝 ##########
+
+                        # FPS 계산 및 텍스트 준비
+                        frame_time_ms = sum(result.speed.values())
+                        if frame_time_ms > 0:
+                            fps_current = 1000 / frame_time_ms
+                            fps_buffer.append(fps_current)
+                            if len(fps_buffer) > fps_buffer_size:
+                                fps_buffer.pop(0)
+                            avg_fps = np.mean(fps_buffer)
+                            fps_text = f"FPS: {avg_fps:.2f}"
+                        else:
+                            fps_text = "FPS: N/A"
+
+                        person_display_text = f"Person: {person_count}"
+                        car_display_text = f"Car: {car_count}"
+
+                        # 텍스트 설정
+                        font = cv2.FONT_HERSHEY_SIMPLEX
+                        font_scale = 0.7
+                        thickness = 2
+                        padding = 5
+                        y_offset = 20
+                        x_start = 10
+
+                        # --- FPS 표시 ---
+                        fps_bg_color = (50, 50, 50) # 어두운 회색
+                        fps_text_color = (0, 255, 0) # 밝은 녹색
+                        (text_width, text_height), baseline = cv2.getTextSize(fps_text, font, font_scale, thickness)
+                        org = (x_start, y_offset + text_height)
+                        cv2.rectangle(im_array, (x_start - padding, y_offset - padding),
+                                    (x_start + text_width + padding, y_offset + text_height + padding), fps_bg_color, -1)
+                        cv2.putText(im_array, fps_text, org, font, font_scale, fps_text_color, thickness, cv2.LINE_AA)
+                        y_offset += text_height + 2 * padding + 5 # 다음 텍스트를 위한 Y 오프셋 조정
+
+                        # --- Person Count 표시 ---
+                        person_bg_color = (100, 0, 0) # 어두운 빨간색
+                        person_text_color = (255, 255, 255) # 흰색
+                        (text_width, text_height), baseline = cv2.getTextSize(person_display_text, font, font_scale, thickness)
+                        org = (x_start, y_offset + text_height)
+                        cv2.rectangle(im_array, (x_start - padding, y_offset - padding),
+                                    (x_start + text_width + padding, y_offset + text_height + padding), person_bg_color, -1)
+                        cv2.putText(im_array, person_display_text, org, font, font_scale, person_text_color, thickness, cv2.LINE_AA)
+                        y_offset += text_height + 2 * padding + 5
+
+                        # --- Car Count 표시 ---
+                        car_bg_color = (0, 0, 150) # 어두운 파란색
+                        car_text_color = (255, 255, 255) # 흰색
+                        (text_width, text_height), baseline = cv2.getTextSize(car_display_text, font, font_scale, thickness)
+                        org = (x_start, y_offset + text_height)
+                        cv2.rectangle(im_array, (x_start - padding, y_offset - padding),
+                                    (x_start + text_width + padding, y_offset + text_height + padding), car_bg_color, -1)
+                        cv2.putText(im_array, car_display_text, org, font, font_scale, car_text_color, thickness, cv2.LINE_AA)
+
+                        # 화면 표시
+                        cv2.imshow("Real-time Detection (Press 'q' to quit)", im_array)
+                        
+                        # '영상'일 경우에만 탐지된 프레임 비디오 파일로 저장
+                        if should_save_video and out is not None:
+                            out.write(im_array)
+
+                    if cv2.waitKey(1) & 0xFF == ord('q'):
+                        break
+
+            except Exception as e:
+                print(f"영상 처리 중 오류 발생: {e}")
+                QMessageBox.critical(self, "오류", f"영상 처리 중 오류가 발생했습니다: {e}")
+            finally:
+                # --- 중요: 자원 해제 ---
+                if cap is not None and cap.isOpened():
+                    cap.release() # 카메라/비디오 자원 해제
+                if out is not None and out.isOpened(): # out이 None이 아닐 때만 release
+                    out.release() # 비디오 저장기 자원 해제
+                cv2.destroyAllWindows() # 모든 OpenCV 창 닫기
+                # ----------------------
+
+            end_time = time.time()
+            execution_time = end_time - start_time
+            print(f"총 실행 시간: {execution_time:.2f} 초")
             
+            # '영상'일 경우에만 저장 완료 메시지 표시
+            if should_save_video and output_video_filename:
+                QMessageBox.information(self, "영상 탐지 완료", f"영상 탐지가 완료되었습니다. 탐지된 영상은 '{output_video_filename}'에 저장되었습니다.\n총 실행 시간: {execution_time:.2f}초")
+            else: # 캡처보드이거나 저장에 실패했을 경우
+                QMessageBox.information(self, "영상 탐지 완료", f"영상 탐지가 완료되었습니다. (저장되지 않음)\n총 실행 시간: {execution_time:.2f}초")
 
-
-
-        elif self.source == '영상':
-            source = str(self.juso[0])
-            results = model(source, imgsz=self.imgsz, stream=True, save=True, show=True, conf=self.percentage, device=self.device, classes=self.classes_to_detect)  # generator of Results objects
-
-            for result in results:
-                detected_classes = result.names
-                detected_ids = result.boxes.cls
-
-            
-            end_time = time.time()  # 종료 시간 기록
-            execution_time = end_time - start_time  # 실행 시간 계산
-            print(f"실행 시간: {execution_time} 초")
-
-
-        elif self.source == '외부영상(캡쳐보드)':
-            # model.predict(0, stream_buffer=True, show=True, conf=self.percentage, device=self.device) #캡쳐보드
-            results = model(0, imgsz=self.imgsz, stream=True, save=False, show=True, conf=self.percentage, device=self.device, classes=self.classes_to_detect)  # generator of Results objects
-
-            for result in results:
-                detected_classes = result.names
-                detected_ids = result.boxes.cls
-
-
-            end_time = time.time()  # 종료 시간 기록
-            execution_time = end_time - start_time  # 실행 시간 계산
-            print(f"실행 시간: {execution_time} 초")    
+  
 
     def run_app():
         """GUI 실행 함수"""
