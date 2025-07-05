@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 
 ################################################################################
-## Form generated from reading UI file 'ex-guieHbHlc.ui'
+## Form generated from reading UI file 'ex-guikrWUeZ.ui'
 ##
-## Created by: Qt User Interface Compiler version 6.8.1
+## Created by: Qt User Interface Compiler version 6.8.2
 ##
 ## WARNING! All changes made in this file will be lost when recompiling UI file!
 ################################################################################
@@ -187,7 +187,7 @@ class Ui_MainWindow(object):
     # setupUi
 
     def retranslateUi(self, MainWindow):
-        MainWindow.setWindowTitle(QCoreApplication.translate("MainWindow", u"AI\uac1d\uccb4\ud0d0\uc9c0 \ud504\ub85c\uadf8\ub7a8 V25.0327 With Stay Up", None))
+        MainWindow.setWindowTitle(QCoreApplication.translate("MainWindow", u"AI\uac1d\uccb4\ud0d0\uc9c0 \ud504\ub85c\uadf8\ub7a8 V25.0705 With Stay Up", None))
 #if QT_CONFIG(tooltip)
         self.label.setToolTip(QCoreApplication.translate("MainWindow", u"<html><head/><body><p align=\"center\">AI\uac1d\uccb4\ud0d0\uc9c0 \uc2e4\ud589\ud504\ub85c\uadf8\ub7a8</p></body></html>", None))
 #endif // QT_CONFIG(tooltip)
@@ -217,12 +217,12 @@ class Ui_MainWindow(object):
         self.pushButton_enter.setText(QCoreApplication.translate("MainWindow", u"\uc2e4\ud589\ud558\uae30", None))
         self.pushButton_close.setText(QCoreApplication.translate("MainWindow", u"\uc885\ub8cc\ud558\uae30", None))
         self.label_6.setText(QCoreApplication.translate("MainWindow", u"[\uc124\uba85\ucc3d]", None))
-        self.plainTextEdit.setPlainText(QCoreApplication.translate("MainWindow", u"#\ud604\uc7ac 2025\ub144 3\uc6d4 27\uc77c \uc218\uc815\ud310\n"
+        self.plainTextEdit.setPlainText(QCoreApplication.translate("MainWindow", u"#\ud604\uc7ac 2025\ub144 7\uc6d4 5\uc77c \uc218\uc815\ud310\n"
 "\uac1d\uccb4\ud0d0\uc9c0\ubaa8\ub378 Yolo V11 / V12 \ucd94\uac00\n"
+"FPS, \uc0ac\ub78c, \uc790\ub3d9\ucc28 \ud0d0\uc9c0\uac2f\uc218 \ud45c\uc2dc \ucd94\uac00\n"
 "\n"
-"\u203b \uc2e4\ud589\uc815\uc9c0\ub294 \ucf58\uc194\ucc3d\uc5d0\uc11c Ctrl + C \uc785\ub825\n"
+"\u203b \uc2e4\ud589\uc815\uc9c0\ub294 \uc2e4\ud589\ucc3d\uc5d0\uc11c Q\ubc84\ud2bc \uc785\ub825\n"
 "\u203b Cuda\ub294 \uadf8\ub798\ud53d\uce74\ub4dc \uc720\ubb34\uc5d0 \ub530\ub77c \uc0ac\uc6a9\n"
-"\n"
 "\n"
 "\n"
 "\n"
