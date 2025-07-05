@@ -1,8 +1,8 @@
 {
-    "version": "25.0327",
-    "release_date": "2025-03-27",
+    "version": "25.0705",
+    "release_date": "2025-07-05",
     "download_url": "https://stayup-ai.com",
     "changelog": [
-      "새로운 기능 추가: 버전변경, Yolo V12추가"
+      "새로운 기능 추가: FPS, 탐지숫자 표시 추가" 
     ]
   }
