@@ -13,6 +13,14 @@
 #                               $$$$$$/                    $$/                                #
 #                                                                                             #  
 ###############################################################################################
+#-----------------------------------------------------------------------------
+# 🚀 메모리 최적화 업데이트 (2025.08.10)
+# - 메모리 모니터링 시스템 통합 (memory_monitor.py)  
+# - FPS 버퍼를 collections.deque로 최적화 (O(1) 성능)
+# - 실시간 처리 루프에 주기적 메모리 정리 추가 (100프레임마다)
+# - 프로그램 종료 시 메모리 사용량 요약 출력
+# - 매 프레임마다 YOLO 결과 객체 즉시 해제로 메모리 누수 방지
+#-----------------------------------------------------------------------------
 
 
 import sys
@@ -22,6 +30,7 @@ import shutil
 import time
 import gc  # 가비지 컬렉터 추가
 from pathlib import Path
+from collections import deque  # 메모리 효율적인 FPS 버퍼용
 from PySide6.QtWidgets import QApplication, QMainWindow, QFileDialog, QMessageBox, QProgressDialog
 from PySide6.QtCore import Qt
 from ultralytics import YOLO
@@ -29,6 +38,21 @@ from mypackage import start, gps2
 from mypackage.modern_gui_fixed import ModernUi_MainWindow
 import cv2  # OpenCV 추가
 import numpy as np # Numpy 추가
+
+# 메모리 모니터링 도구 import
+try:
+    import sys
+    sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+    from memory_monitor import MemoryMonitor
+    MEMORY_MONITOR_AVAILABLE = True
+    print("✅ 메모리 모니터링 활성화")
+except ImportError:
+    print("⚠️ 메모리 모니터링 비활성화 (memory_monitor.py 없음)")
+    MEMORY_MONITOR_AVAILABLE = False
+    class MemoryMonitor:
+        def __init__(self): pass
+        def log_memory_usage(self, context=""): pass
+        def get_summary(self): return "모니터링 비활성화"
 
 
 class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
@@ -63,6 +87,10 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
         
         # 메모리 관리용 변수 추가
         self.current_model = None
+        
+        # 🚀 메모리 모니터링 도구 초기화
+        self.memory_monitor = MemoryMonitor()
+        self.memory_monitor.log_memory_usage("GUI 초기화 완료")
 
     def update_detection_options(self):
         """체크박스 상태에 따라 탐지 옵션을 업데이트"""
@@ -104,6 +132,13 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
     def cleanup_resources(self):
         """애플리케이션 종료 시 메모리 정리"""
         try:
+            # 🚀 메모리 사용량 최종 요약 출력
+            if hasattr(self, 'memory_monitor'):
+                print("=" * 50)
+                print("📊 메모리 사용량 최종 요약")
+                print(self.memory_monitor.get_summary())
+                print("=" * 50)
+            
             # YOLO 모델 메모리 해제
             if self.current_model is not None:
                 del self.current_model
@@ -118,6 +153,10 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
             # 가비지 컬렉션 강제 실행
             gc.collect()
             print("🧹 가비지 컬렉션 완료")
+            
+            # 🚀 최종 메모리 상태 확인
+            if hasattr(self, 'memory_monitor'):
+                self.memory_monitor.log_memory_usage("프로그램 종료 시")
             
         except Exception as e:
             print(f"⚠️ 리소스 정리 중 오류: {e}")
@@ -325,6 +364,9 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
     def submit(self):
         start_time = time.time()  # 시작 시간 기록
         
+        # 🚀 메모리 모니터링: 처리 시작 전
+        self.memory_monitor.log_memory_usage("처리 시작")
+        
         # 기존 모델이 있다면 메모리 정리 후 새 모델 생성
         if self.current_model is not None:
             del self.current_model
@@ -332,10 +374,14 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
                 torch.cuda.empty_cache()  # CUDA 메모리 정리
             gc.collect()  # 가비지 컬렉션
             print("🧹 기존 YOLO 모델 메모리 정리 완료")
+            # 🚀 메모리 모니터링: 기존 모델 정리 후
+            self.memory_monitor.log_memory_usage("기존 모델 정리 후")
         
         # 새 모델 생성
         self.current_model = YOLO(self.datasize)
         model = self.current_model
+        # 🚀 메모리 모니터링: 새 모델 로딩 후
+        self.memory_monitor.log_memory_usage(f"새 모델 로딩 후 ({self.datasize})")
 
         # 결과를 저장할 변수 초기화
         detected_files = []
@@ -445,10 +491,14 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
                         out = None 
                         should_save_video = False # 저장 실패 시 플래그 끄기
 
-                fps_buffer = []
-                fps_buffer_size = 10
+                # 🚀 메모리 효율적인 FPS 버퍼 (deque 사용)
+                fps_buffer = deque(maxlen=10)  # 자동으로 크기 제한, O(1) 성능
 
                 QMessageBox.information(self, "영상 탐지 시작", "영상 탐지를 시작합니다. 'q' 키를 누르면 종료됩니다.")
+                
+                # 🚀 메모리 모니터링: 실시간 처리 시작
+                self.memory_monitor.log_memory_usage("실시간 처리 시작")
+                frame_counter = 0  # 프레임 카운터 추가
 
                 while True:
                     ret, frame = cap.read()
@@ -482,9 +532,8 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
                         frame_time_ms = sum(result.speed.values())
                         if frame_time_ms > 0:
                             fps_current = 1000 / frame_time_ms
+                            # 🚀 O(1) 성능으로 FPS 추가 (자동 크기 제한)
                             fps_buffer.append(fps_current)
-                            if len(fps_buffer) > fps_buffer_size:
-                                fps_buffer.pop(0)
                             avg_fps = np.mean(fps_buffer)
                             fps_text = f"FPS: {avg_fps:.2f}"
                         else:
@@ -537,6 +586,22 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
                         if should_save_video and out is not None:
                             out.write(im_array)
 
+                    # 🚀 메모리 관리: 프레임 카운터 및 주기적 정리
+                    frame_counter += 1
+                    
+                    # 매 프레임마다 결과 객체 즉시 정리
+                    if 'results_list' in locals():
+                        del results_list
+                    if 'result' in locals():
+                        del result
+                    
+                    # 100프레임마다 깊은 메모리 정리
+                    if frame_counter % 100 == 0:
+                        gc.collect()
+                        if torch.cuda.is_available():
+                            torch.cuda.empty_cache()
+                        self.memory_monitor.log_memory_usage(f"프레임 {frame_counter} 정리 완료")
+                    
                     if cv2.waitKey(1) & 0xFF == ord('q'):
                         break
 
