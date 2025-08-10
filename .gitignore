@@ -1,0 +1,144 @@
+# AI Object Detection Project .gitignore
+
+# YOLO Model Files (Large Size)
+*.pt
+*.pth
+*.h5
+*.onnx
+*.pkl
+*.ckpt
+yolo*.pt
+yolo*_openvino_model/
+*.bin
+*.xml
+
+# Media Files
+*.mp4
+*.mov
+*.avi
+*.mkv
+*.wmv
+*.flv
+*.webm
+*.mp3
+*.wav
+*.jpg
+*.jpeg
+*.png
+*.bmp
+*.tiff
+*.gif
+
+# Archive Files
+*.zip
+*.rar
+*.7z
+*.tar
+*.gz
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environment
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Log Files
+*.log
+*.out
+*.err
+kernel.errors.txt
+
+# Temporary Files
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+
+# YOLO Output Directories
+runs/
+mypackage/runs/
+detected_files/
+outputs/
+results/
+
+# Jupyter Notebook
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# IDE Settings
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# OS Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# Claude Settings
+.claude/
+
+# Cache Files
+*.cache
+.cache/
+.pytest_cache/
+
+# Data Directories (Large Size)
+data/
+dataset/
+datasets/
+
+# Backup Files
+*.bak
+*.backup
+
+# System Temp
+.tmp/
+tmp/
+
+# SuperClaude Related
+superclaude/uv.lock
+superclaude
+
+# Personal Settings
+config.local.py
+settings.local.py
+secrets.py
