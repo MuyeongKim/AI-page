@@ -17,7 +17,7 @@
    <enum>Qt::ContextMenuPolicy::PreventContextMenu</enum>
   </property>
   <property name="windowTitle">
-   <string>AI 객체탐지 프로그램 V25.0810 With Stay Up</string>
+   <string>AI 객체탐지 프로그램 V26.04.09 With Stay Up</string>
   </property>
   <widget class="QWidget" name="centralwidget">
    <widget class="QLabel" name="label">
@@ -144,56 +144,71 @@
       <string>선택하세요</string>
      </property>
     </item>
-    <item>
-     <property name="text">
-      <string>YoloV11_최대(추천)</string>
-     </property>
-    </item>
-    <item>
-     <property name="text">
-      <string>YoloV11_대</string>
-     </property>
-    </item>
-    <item>
-     <property name="text">
-      <string>YoloV11_중</string>
-     </property>
-    </item>
-    <item>
-     <property name="text">
-      <string>YoloV11_소</string>
-     </property>
-    </item>
-    <item>
-     <property name="text">
-      <string>YoloV11_최소</string>
-     </property>
-    </item>
-    <item>
-     <property name="text">
-      <string>YoloV12(최대)</string>
-     </property>
-    </item>
-    <item>
-     <property name="text">
-      <string>YoloV12(최소)</string>
-     </property>
-    </item>
-    <item>
-     <property name="text">
-      <string>YoloV8(최대)</string>
-     </property>
-    </item>
-    <item>
-     <property name="text">
-      <string>VisDrone(예정)</string>
-     </property>
-    </item>
-    <item>
-     <property name="text">
-      <string>화염전용탐지(예정)</string>
-     </property>
-    </item>
+     <item>
+      <property name="text">
+       <string>YoloV26_최대(추천)</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>YoloV26_대</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>YoloV26_중</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>YoloV26_소</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>YoloV26_최소</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>YoloV11_최대</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>YoloV11_대</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>YoloV11_중</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>YoloV11_소</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>YoloV11_최소</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>YoloV12(최대)</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>YoloV12(최소)</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>화염전용탐지(예정)</string>
+      </property>
+     </item>
    </widget>
    <widget class="QLabel" name="label_5">
     <property name="geometry">

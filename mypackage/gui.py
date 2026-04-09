@@ -366,20 +366,34 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
         self.memory_monitor = MemoryMonitor()
         self.memory_monitor.log_memory_usage("GUI 초기화 완료")
 
+    @staticmethod
+    def run_app():
+        """Create the QApplication, authenticate, and launch the main window."""
+        app = QApplication.instance()
+        if app is None:
+            app = QApplication(sys.argv)
+
+        if start.authenticate():
+            window = Ui_MainWindow()
+            window.show()
+            sys.exit(app.exec())
+
+        sys.exit()
+
     def update_detection_options(self):
         """체크박스 상태에 따라 탐지 옵션을 업데이트"""
         if self.only_person and self.only_car:
             self.classes_to_detect = [0, 2, 5, 7]  # 사람과 자동차 탐지(자동차, 버스, 트럭)
-            print("사람 및 자동차 탐지 활성화")
+            print("사람과 차량 탐지를 사용합니다.")
         elif self.only_person:
             self.classes_to_detect = [0]  # 사람만 탐지
-            print("사람만 탐지 활성화")
+            print("사람만 탐지합니다.")
         elif self.only_car:
             self.classes_to_detect = [2,5,7]  # 자동차만 탐지(자동차, 버스, 트럭)
-            print("자동차만 탐지 활성화")
+            print("차량만 탐지합니다.")
         else:
             self.classes_to_detect = None  # 전체 탐지
-            print("전체 탐지 활성화")
+            print("전체 객체 탐지를 사용합니다.")
 
     def update_only_person(self, state):
         """체크박스 상태 변경"""
@@ -455,7 +469,21 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
         if selection == "선택하세요":
             return ""
         else:
-            size_dict = {'YoloV11_최대(추천)' : 'yolo11x.pt', 'YoloV11_대': 'yolo11l.pt', 'YoloV11_중': 'yolo11m.pt', 'YoloV11_소': 'yolo11s.pt', 'YoloV11_최소': 'yolo11n.pt', 'YoloV12(최대)': 'yolo12x.pt', 'YoloV12(최소)': 'yolo12n.pt', 'YoloV8(최대)': 'yolov8x.pt', 'VisDrone(예정)': 'visdrone.pt', '화염전용탐지(예정)' :'fire_detect.py'}
+            size_dict = {
+                'YoloV26_최대(추천)': 'yolo26x.pt',
+                'YoloV26_대': 'yolo26l.pt',
+                'YoloV26_중': 'yolo26m.pt',
+                'YoloV26_소': 'yolo26s.pt',
+                'YoloV26_최소': 'yolo26n.pt',
+                'YoloV11_최대': 'yolo11x.pt',
+                'YoloV11_대': 'yolo11l.pt',
+                'YoloV11_중': 'yolo11m.pt',
+                'YoloV11_소': 'yolo11s.pt',
+                'YoloV11_최소': 'yolo11n.pt',
+                'YoloV12(최대)': 'yolo12x.pt',
+                'YoloV12(최소)': 'yolo12n.pt',
+                '화염전용탐지(예정)': 'fire_detect.py'
+            }
             self.datasize = size_dict[selection]   
         print(self.datasize)            
 
@@ -484,7 +512,7 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
         selected_device = device_options.get(selection, 'cpu')
 
         if selected_device == 'cuda' and not torch.cuda.is_available():
-            QMessageBox.warning(self, "GPU 사용 불가", "GPU가 없어 CPU로 전환됩니다.")
+            QMessageBox.warning(self, "GPU 사용 불가", "GPU를 사용할 수 없어 CPU로 전환합니다.")
             selected_device = 'cpu'
             
         self.device = selected_device
@@ -632,20 +660,20 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
             )
         
         QMessageBox.information(
-            None, "AI 객체 탐지 완료 with Stay Up", message)
+            None, "AI 객체 탐지 완료", message)
 
 
     def submit(self):
         """실행 버튼 클릭 시 호출 - 스레드 시작"""
         # 중복 실행 방지
         if hasattr(self, 'worker') and self.worker.isRunning():
-            QMessageBox.warning(self, "경고", "이미 작업이 진행 중입니다.")
+            QMessageBox.warning(self, "작업 안내", "이미 작업이 진행 중입니다.")
             return
 
         # 입력값 검증
         if self.source == '사진':
             if not self.juso:
-                QMessageBox.warning(None, "오류", "올바른 파일이나 폴더를 선택해주세요.")
+                QMessageBox.warning(None, "입력 확인", "올바른 파일 또는 폴더를 선택해 주세요.")
                 return
         
         # 파라미터 패키징
@@ -672,8 +700,8 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
         
         # 진행률 다이얼로그 설정 (사진인 경우)
         if self.source == '사진':
-            self.progress_dialog = QProgressDialog("AI 객체탐지 준비 중...", "취소", 0, params['file_count'], self)
-            self.progress_dialog.setWindowTitle("AI 객체탐지 진행 중")
+            self.progress_dialog = QProgressDialog("AI 객체 탐지를 준비하는 중입니다...", "취소", 0, params['file_count'], self)
+            self.progress_dialog.setWindowTitle("AI 객체 탐지 진행 중")
             self.progress_dialog.setWindowModality(Qt.ApplicationModal)
             self.progress_dialog.canceled.connect(self.worker.stop)
             self.progress_dialog.show()
@@ -694,7 +722,7 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
     @Slot(str)
     def handle_error(self, error_msg):
         """에러 처리"""
-        QMessageBox.critical(self, "오류", f"작업 중 오류 발생: {error_msg}")
+        QMessageBox.critical(self, "작업 오류", f"작업 중 오류가 발생했습니다:\n{error_msg}")
         if hasattr(self, 'progress_dialog'):
             self.progress_dialog.close()
 
@@ -723,7 +751,7 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
         
         # GPS 처리 확인 (사진인 경우)
         if result['source'] == '사진' and len(detected_files) > 0:
-            reply = QMessageBox.question(self, "GPS 정보 처리", "GPS 정보 분석을 실행하시겠습니까?", QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+            reply = QMessageBox.question(self, "GPS 정보 분석", "탐지된 파일을 기준으로 GPS 정보를 분석하시겠습니까?", QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
             if reply == QMessageBox.Yes:
                 gps2.process_images_in_folder("detected_files")
 
@@ -766,6 +794,39 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
             sys.exit(app.exec())
         else:
             sys.exit()  # 인증 실패 시 종료
+
+def _display_results_new_fixed(self, result):
+    """Display the final detection summary without re-entering app startup."""
+    image_count = result['image_count']
+    detected_files = result['detected_files']
+    folder_status = result['folder_status']
+    execution_time = result['execution_time']
+    total_people = result['total_people']
+    total_cars = result['total_cars']
+
+    message = (
+        f"{folder_status}\n\n"
+        f"총 처리 파일 {image_count}개 중 {len(detected_files)}개에서 객체가 탐지되었고, "
+        f"실행 시간은 {execution_time:.2f}초입니다."
+    )
+
+    if detected_files:
+        if self.only_person and not self.only_car:
+            message += f"\n\n사람 탐지 수: {total_people}명"
+        elif self.only_car and not self.only_person:
+            message += f"\n\n차량 탐지 수: {total_cars}대"
+        else:
+            message += f"\n\n탐지 결과: 사람 {total_people}명, 차량 {total_cars}대"
+
+        message += "\n탐지된 파일은 detected_files 폴더에 저장되었습니다."
+    else:
+        message += "\n\n탐지된 객체가 없습니다."
+
+    QMessageBox.information(self, "AI 객체 탐지 완료", message)
+
+
+Ui_MainWindow.display_results_new = _display_results_new_fixed
+
 
 if __name__ == "__main__":
     Ui_MainWindow.run_app()

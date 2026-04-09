@@ -13,10 +13,85 @@
 #                               $$$$$$/                    $$/                                #
 #                                                                                             #  
 ###############################################################################################
+import atexit
 import os
+import threading
+import webbrowser
+from functools import partial
+from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+from urllib.parse import quote
+
 import exifread
 import folium
-import webbrowser
+
+
+_MAP_SERVER = None
+_MAP_SERVER_THREAD = None
+_MAP_SERVER_ROOT = None
+
+
+class _LocalMapRequestHandler(SimpleHTTPRequestHandler):
+    """HTTP handler for local map preview."""
+
+    def do_GET(self):
+        if self.path == "/favicon.ico":
+            self.send_response(204)
+            self.end_headers()
+            return
+        super().do_GET()
+
+    def log_message(self, format, *args):
+        """Silence local preview HTTP logs."""
+        return
+
+
+def _ensure_local_http_server(directory):
+    """Serve generated map files over HTTP so tile requests include a Referer."""
+    global _MAP_SERVER, _MAP_SERVER_THREAD, _MAP_SERVER_ROOT
+
+    directory = str(Path(directory).resolve())
+    if _MAP_SERVER is not None and _MAP_SERVER_ROOT == directory:
+        return _MAP_SERVER.server_port
+
+    if _MAP_SERVER is not None:
+        _MAP_SERVER.shutdown()
+        _MAP_SERVER.server_close()
+        _MAP_SERVER = None
+        _MAP_SERVER_THREAD = None
+        _MAP_SERVER_ROOT = None
+
+    handler = partial(_LocalMapRequestHandler, directory=directory)
+    server = ThreadingHTTPServer(("127.0.0.1", 0), handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+
+    _MAP_SERVER = server
+    _MAP_SERVER_THREAD = thread
+    _MAP_SERVER_ROOT = directory
+    return server.server_port
+
+
+def _shutdown_local_http_server():
+    """Cleanly stop the local HTTP server on program exit."""
+    global _MAP_SERVER, _MAP_SERVER_THREAD, _MAP_SERVER_ROOT
+    if _MAP_SERVER is not None:
+        _MAP_SERVER.shutdown()
+        _MAP_SERVER.server_close()
+        _MAP_SERVER = None
+        _MAP_SERVER_THREAD = None
+        _MAP_SERVER_ROOT = None
+
+
+atexit.register(_shutdown_local_http_server)
+
+
+def _open_map_in_browser(output_html):
+    """Open the generated HTML through a local HTTP server instead of file://."""
+    output_path = Path(output_html).resolve()
+    port = _ensure_local_http_server(output_path.parent)
+    url = f"http://127.0.0.1:{port}/{quote(output_path.name)}"
+    webbrowser.open(url)
 
 def extract_gps_data(image_path):
     """
@@ -58,20 +133,22 @@ def plot_location_on_map(locations, output_html='map.html'):
         print("No locations to plot.")
         return
 
+    output_path = Path(output_html).resolve()
+
     # Initialize map centered at the first location
     center_lat, center_lon = locations[0]
-    m = folium.Map(location=[center_lat, center_lon], zoom_start=15)
+    m = folium.Map(location=[center_lat, center_lon], zoom_start=15, tiles="OpenStreetMap")
 
     # Add markers for each location
     for lat, lon in locations:
         folium.Marker([lat, lon], popup=f"Location: {lat}, {lon}").add_to(m)
 
     # Save the map to an HTML file
-    m.save(output_html)
-    print(f"Map saved as {output_html}")
+    m.save(str(output_path))
+    print(f"Map saved as {output_path}")
 
-    # Open the generated map in the default web browser
-    webbrowser.open(output_html)
+    # Open the generated map in the default web browser via localhost
+    _open_map_in_browser(output_path)
 
 def process_images_in_folder(folder_path):
     """
@@ -103,4 +180,3 @@ def process_images_in_folder(folder_path):
         print(f"탐지된 위치가 지도에 {len(locations)}곳이 표시되었습니다.")
     else:
         print("탐지된 위치가 없습니다.")
-
