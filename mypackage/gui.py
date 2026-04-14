@@ -36,6 +36,13 @@ from PySide6.QtCore import Qt, QThread, Signal, Slot, QObject
 from ultralytics import YOLO
 from mypackage import start, gps2
 from mypackage.modern_gui_fixed import ModernUi_MainWindow
+from mypackage.video_source import (
+    CAPTURE_BOARD_SOURCE,
+    VIDEO_FILE_SOURCE,
+    is_live_video_source,
+    normalize_source_name,
+    resolve_video_source_path,
+)
 import cv2  # OpenCV 추가
 import numpy as np # Numpy 추가
 
@@ -73,7 +80,7 @@ class DetectionWorker(QThread):
         self.model = None
         
         # 파라미터 언패킹
-        self.source = params.get('source')
+        self.source = normalize_source_name(params.get('source'))
         self.juso = params.get('juso')
         self.datasize = params.get('datasize')
         self.imgsz = params.get('imgsz')
@@ -111,7 +118,7 @@ class DetectionWorker(QThread):
             # 소스 유형에 따른 처리
             if self.source == '사진':
                 self.process_images(output_folder, detected_files)
-            elif self.source in ['영상', '외부영상(캡쳐보드)']:
+            elif is_live_video_source(self.source):
                 self.process_video(output_folder)
                 
             # 최종 결과 정리
@@ -205,15 +212,14 @@ class DetectionWorker(QThread):
         output_video_filename = None
 
         try:
-            if self.source == '영상':
-                source_path = str(self.juso[0]) if isinstance(self.juso, list) else str(self.juso)
+            source_path = resolve_video_source_path(self.source, self.juso)
+
+            if self.source == VIDEO_FILE_SOURCE:
                 output_video_filename = os.path.join(output_folder, f"detected_{os.path.basename(source_path)}")
-            else:
-                source_path = 0
 
             cap = cv2.VideoCapture(source_path)
             if not cap.isOpened():
-                raise Exception("카메라 또는 영상을 열 수 없습니다.")
+                raise Exception(f"카메라 또는 영상을 열 수 없습니다. 입력 소스: {source_path}")
 
             frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
             frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
@@ -365,6 +371,8 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
         # 🚀 메모리 모니터링 도구 초기화
         self.memory_monitor = MemoryMonitor()
         self.memory_monitor.log_memory_usage("GUI 초기화 완료")
+        self.source = None
+        self.configure_source_input_mode()
 
     @staticmethod
     def run_app():
@@ -461,8 +469,23 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
         if selection == "선택하세요":
             return ""
         else:
-            self.source = selection
+            self.source = normalize_source_name(selection)
+            self.configure_source_input_mode()
         print(self.source)
+
+    def configure_source_input_mode(self):
+        is_capture_board = normalize_source_name(getattr(self, "source", None)) == CAPTURE_BOARD_SOURCE
+
+        if is_capture_board:
+            self.label_5.setText("3. 장치 번호")
+            self.lineEdit_juso.setPlaceholderText("캡처보드/웹캠 장치 번호를 입력하세요. 비워두면 0번 장치")
+            self.pushButton_search.setEnabled(False)
+            self.pushButton_search_2.setEnabled(False)
+        else:
+            self.label_5.setText("3. 파일 또는 폴더")
+            self.lineEdit_juso.setPlaceholderText("탐지할 파일 또는 폴더 경로를 선택하세요")
+            self.pushButton_search.setEnabled(True)
+            self.pushButton_search_2.setEnabled(True)
         
     def update_datasize(self, index):
         selection = self.comboBox_data.itemText(index)
@@ -675,6 +698,16 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
             if not self.juso:
                 QMessageBox.warning(None, "입력 확인", "올바른 파일 또는 폴더를 선택해 주세요.")
                 return
+        elif self.source == VIDEO_FILE_SOURCE:
+            if not self.juso:
+                QMessageBox.warning(None, "입력 확인", "영상 파일을 선택해 주세요.")
+                return
+        elif self.source == CAPTURE_BOARD_SOURCE:
+            try:
+                resolve_video_source_path(self.source, self.juso)
+            except ValueError as exc:
+                QMessageBox.warning(None, "입력 확인", str(exc))
+                return
         
         # 파라미터 패키징
         params = {
@@ -753,7 +786,7 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
         if result['source'] == '사진' and len(detected_files) > 0:
             reply = QMessageBox.question(self, "GPS 정보 분석", "탐지된 파일을 기준으로 GPS 정보를 분석하시겠습니까?", QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
             if reply == QMessageBox.Yes:
-                gps2.process_images_in_folder("detected_files")
+                gps2.process_image_paths(detected_files)
 
         # 메모리 정리
         self.cleanup_resources()

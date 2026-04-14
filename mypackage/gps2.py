@@ -29,6 +29,7 @@ import folium
 _MAP_SERVER = None
 _MAP_SERVER_THREAD = None
 _MAP_SERVER_ROOT = None
+_IMAGE_EXTENSIONS = (".jpg", ".jpeg", ".png")
 
 
 class _LocalMapRequestHandler(SimpleHTTPRequestHandler):
@@ -125,7 +126,7 @@ def extract_gps_data(image_path):
 
     return latitude, longitude
 
-def plot_location_on_map(locations, output_html='map.html'):
+def plot_location_on_map(locations, output_html='map.html', open_browser=True):
     """
     Plot GPS locations on a map and save as an HTML file.
     """
@@ -148,35 +149,55 @@ def plot_location_on_map(locations, output_html='map.html'):
     print(f"Map saved as {output_path}")
 
     # Open the generated map in the default web browser via localhost
-    _open_map_in_browser(output_path)
+    if open_browser:
+        _open_map_in_browser(output_path)
+
+
+def list_original_images_in_folder(folder_path):
+    """Return only top-level copied originals from the target folder."""
+    folder = Path(folder_path)
+    image_paths = []
+
+    for path in sorted(folder.iterdir()):
+        if not path.is_file():
+            continue
+        if not path.name.startswith("original_"):
+            continue
+        if path.name.startswith("original_original_"):
+            continue
+        if path.suffix.lower() not in _IMAGE_EXTENSIONS:
+            continue
+        image_paths.append(str(path))
+
+    return image_paths
+
+
+def process_image_paths(image_paths, output_html='map.html', open_browser=True):
+    """Extract GPS data from the current image list only."""
+    locations = []
+    seen_paths = set()
+
+    for image_path in image_paths:
+        normalized_path = str(image_path)
+        if normalized_path in seen_paths:
+            continue
+
+        seen_paths.add(normalized_path)
+        gps_data = extract_gps_data(normalized_path)
+        if gps_data:
+            locations.append(gps_data)
+
+    if locations:
+        plot_location_on_map(locations, output_html=output_html, open_browser=open_browser)
+        print(f"탐지된 위치가 지도에 {len(locations)}곳이 표시되었습니다.")
+        return len(locations)
+
+    print("탐지된 위치가 없습니다.")
+    return 0
 
 def process_images_in_folder(folder_path):
     """
     Process all images in the specified folder and extract GPS data.
     """
-    locations = []
-    for file_name in os.listdir(folder_path):
-        # 파일 이름이 'original_'로 시작하는지 확인
-        if not file_name.startswith("original_"):
-            continue
-
-        # 파일 확장자가 이미지인지 확인
-        if file_name.lower().endswith(('.jpg', '.jpeg', '.png')):
-            image_path = os.path.join(folder_path, file_name)
-            gps_data = extract_gps_data(image_path)
-            if gps_data:
-                locations.append(gps_data)                
-                # print(f"GPS Data for {file_name}: {gps_data}")
-                
-
-            else:
-                # print(f"No GPS Data for {file_name}")
-                # print("탐지된 위치가 없습니다.")
-                pass
-
-    # Plot the locations on a map
-    if locations:
-        plot_location_on_map(locations)
-        print(f"탐지된 위치가 지도에 {len(locations)}곳이 표시되었습니다.")
-    else:
-        print("탐지된 위치가 없습니다.")
+    image_paths = list_original_images_in_folder(folder_path)
+    return process_image_paths(image_paths)
