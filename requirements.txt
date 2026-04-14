@@ -1,0 +1,12 @@
+# AI-page direct runtime dependencies
+# If you use CUDA PyTorch builds, install torch from the matching PyTorch index URL instead.
+
+PySide6
+torch
+ultralytics
+opencv-python
+numpy
+folium
+exifread
+requests
+psutil
