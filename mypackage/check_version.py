@@ -15,6 +15,7 @@
 ###############################################################################################
 
 import sys
+import socket
 
 import requests
 from PySide6.QtWidgets import QApplication, QMessageBox
@@ -25,8 +26,24 @@ VERSION_INFO_URL = "https://raw.githubusercontent.com/MuyeongKim/AI-page/refs/he
 REQUEST_TIMEOUT = (1.5, 2.5)
 
 
+def has_internet_connection():
+    """빠르게 네트워크 도달 가능 여부를 확인한다."""
+    for host, port in (("1.1.1.1", 443), ("8.8.8.8", 53)):
+        try:
+            connection = socket.create_connection((host, port), timeout=0.5)
+            connection.close()
+            return True
+        except OSError:
+            continue
+    return False
+
+
 def get_latest_version():
     """서버에서 최신 버전 정보를 가져온다."""
+    if not has_internet_connection():
+        print("오프라인 상태라 최신 버전 확인을 건너뜁니다.")
+        return "NO_CONNECTION"
+
     try:
         response = requests.get(VERSION_INFO_URL, timeout=REQUEST_TIMEOUT)
         response.raise_for_status()
