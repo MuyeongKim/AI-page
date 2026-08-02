@@ -6,7 +6,8 @@
 ################################################################################
 
 import sys
-from PySide6.QtCore import Qt, QSize
+
+from PySide6.QtCore import QSize, Qt
 from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
@@ -152,7 +153,7 @@ class ModernUi_MainWindow(object):
         self.plainTextEdit.setFixedHeight(150)
 
         self.label_11 = QLabel(
-            "This program utilizes Ultralytics YOLO, licensed under GNU GPL v3."
+            "This program utilizes Ultralytics YOLO, licensed under AGPL-3.0."
         )
         self.label_11.setObjectName("label_11")
 
@@ -179,7 +180,11 @@ class ModernUi_MainWindow(object):
         title_wrap.addWidget(self.header_subtitle)
 
         header_top.addLayout(title_wrap, 1)
-        header_top.addWidget(self.label_2, 0, Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignRight)
+        header_top.addWidget(
+            self.label_2,
+            0,
+            Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignRight,
+        )
 
         header_layout.addLayout(header_top)
         self.main_layout.addWidget(self.headerCard)
@@ -269,7 +274,8 @@ class ModernUi_MainWindow(object):
             "1. 입력 소스에서 외부영상, 사진, 영상 중 하나를 선택합니다.\n\n"
             "2. 탐지 모델은 V26 또는 V11 계열 중 목적에 맞는 항목을 선택합니다. "
             "일반적으로는 최대(추천) 모델을 먼저 사용하면 됩니다.\n\n"
-            "3. 사진/영상은 파일 또는 폴더를 선택하고, 외부영상(캡처보드)은 장치 번호를 입력합니다. "
+            "3. 사진/영상은 파일 또는 폴더를 선택하고, "
+            "외부영상(캡처보드)은 장치 번호를 입력합니다. "
             "비워두면 0번 장치를 사용합니다.\n\n"
             "4. 신뢰도, 장치, 해상도를 조정한 뒤 탐지 시작 버튼을 눌러 실행합니다."
         )
@@ -280,7 +286,7 @@ class ModernUi_MainWindow(object):
             "- 모던 GUI 스타일 정리 및 사용자 문구 개선\n"
             "- 결과 표시 흐름과 실행 진입점 보완\n\n"
             "[참고]\n"
-            "- 실행 중 중단은 실행 창에서 Q 키로 처리할 수 있습니다.\n"
+            "- 실행 중 중단은 진행 창의 취소 버튼 또는 미리보기 창 닫기로 처리할 수 있습니다.\n"
             "- CUDA 사용 가능 여부에 따라 GPU 또는 CPU가 자동 적용됩니다.\n\n"
             "[문의]\n"
             "tenmoo@naver.com"

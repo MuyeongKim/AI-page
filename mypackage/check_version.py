@@ -14,12 +14,11 @@
 #                                                                                             #
 ###############################################################################################
 
-import sys
 import socket
+import sys
 
 import requests
 from PySide6.QtWidgets import QApplication, QMessageBox
-
 
 CURRENT_VERSION = "26.04.09"
 VERSION_INFO_URL = "https://raw.githubusercontent.com/MuyeongKim/AI-page/refs/heads/main/latest_version.json"
@@ -144,14 +143,7 @@ def main():
         )
         return
 
-    show_message(
-        "최신 버전 사용 중",
-        (
-            f"현재 버전: {CURRENT_VERSION}\n\n"
-            "현재 최신 버전을 사용 중입니다."
-        ),
-        QMessageBox.Icon.Information,
-    )
+    print(f"현재 최신 버전({CURRENT_VERSION})을 사용 중입니다.")
 
 
 if __name__ == "__main__":

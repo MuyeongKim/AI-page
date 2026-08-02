@@ -43,17 +43,16 @@
 #   - 프로그램 종료 시 메모리 사용량 요약 출력
 #-----------------------------------------------------------------------------
 import sys
-import os
-from mypackage import gui
-import mypackage.check_version as check_version
+
 
 def run_basic_gui():
     """기본 GUI 실행 (호환성 문제 해결용)"""
     try:
         print("🔧 기본 호환 모드로 실행합니다...")
         
-        from mypackage import start
         from PySide6.QtWidgets import QApplication
+
+        from mypackage import gui, start
         
         app = QApplication.instance()
         if app is None:
@@ -81,6 +80,8 @@ def main():
     print("=" * 60)
     
     try:
+        import mypackage.check_version as check_version
+
         # 버전 체크 먼저 실행
         print("📋 버전 확인 중...")
         try:
@@ -89,6 +90,8 @@ def main():
             print("⚠️ 버전 확인이 중단되어 이 단계는 건너뜁니다.")
         except Exception as version_error:
             print(f"⚠️ 버전 확인 중 문제가 발생해 이 단계는 건너뜁니다: {version_error}")
+
+        from mypackage import gui
         
         print("🖥️  모던 GUI를 불러오는 중...")
         print("✨ 주요 기능:")

@@ -15,12 +15,13 @@
 ###############################################################################################
 
 
-from PySide6.QtWidgets import QMessageBox, QInputDialog, QApplication
-from PySide6.QtCore import Qt
+import os
 import sys
 
+from PySide6.QtWidgets import QApplication, QInputDialog, QLineEdit, QMessageBox
+
 # 유효기간 및 인증 키 설정
-VALID_KEY = "stayup"
+VALID_KEY = os.environ.get("STAYUP_AI_KEY") or "stayup"
 MAX_ATTEMPTS = 3  # 최대 인증 시도 횟수
 
 def apply_modern_style():
@@ -109,20 +110,33 @@ def authenticate_basic():
         user_key, ok = QInputDialog.getText(
             None, 
             "Stay Up AI - 인증", 
-            "AI 객체탐지 프로그램 실행을 위한 인증 키를 입력하세요:"
+            "AI 객체탐지 프로그램 실행을 위한 인증 키를 입력하세요:",
+            QLineEdit.EchoMode.Password,
         )
         
         if ok and user_key:
             if user_key == VALID_KEY:
-                QMessageBox.information(None, "인증 성공", "인증 성공!\nAI 객체탐지 프로그램을 실행합니다.")
+                QMessageBox.information(
+                    None,
+                    "인증 성공",
+                    "인증 성공!\nAI 객체탐지 프로그램을 실행합니다.",
+                )
                 return True
             else:
                 attempts += 1
                 remaining_attempts = MAX_ATTEMPTS - attempts
                 if remaining_attempts > 0:
-                    QMessageBox.warning(None, "인증 실패", f"인증 실패!\n남은 시도 횟수: {remaining_attempts}회")
+                    QMessageBox.warning(
+                        None,
+                        "인증 실패",
+                        f"인증 실패!\n남은 시도 횟수: {remaining_attempts}회",
+                    )
                 else:
-                    QMessageBox.critical(None, "인증 실패", "인증 실패 횟수 초과!\n프로그램을 종료합니다.")
+                    QMessageBox.critical(
+                        None,
+                        "인증 실패",
+                        "인증 실패 횟수 초과!\n프로그램을 종료합니다.",
+                    )
                     sys.exit()
         else:
             QMessageBox.warning(None, "취소", "인증이 취소되었습니다.\n프로그램을 종료합니다.")
@@ -147,7 +161,8 @@ def authenticate():
         user_key, ok = QInputDialog.getText(
             None, 
             "🔐 Stay Up AI - 인증", 
-            "✨ AI 객체탐지 프로그램 실행을 위한 인증 키를 입력하세요:\n\n🔑 인증 키:"
+            "✨ AI 객체탐지 프로그램 실행을 위한 인증 키를 입력하세요:\n\n🔑 인증 키:",
+            QLineEdit.EchoMode.Password,
         )
         
         if ok and user_key:

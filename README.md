@@ -37,6 +37,24 @@ YOLO와 PySide6 기반의 AI 객체 탐지 프로그램입니다.
   - `folium`
   - `psutil`
 
+## 설치 방법
+
+```bash
+python -m venv .venv
+```
+
+가상환경을 활성화한 뒤 런타임 의존성을 설치합니다.
+
+```bash
+# Windows
+.venv\Scripts\activate
+
+# macOS / Linux
+source .venv/bin/activate
+
+python -m pip install -r requirements.txt
+```
+
 ## 실행 방법
 
 ```bash
@@ -97,6 +115,30 @@ AI-page/
 - GPU가 없으면 CPU로 자동 전환됩니다.
 - 탐지 결과는 입력 종류와 옵션에 따라 처리 시간이 달라질 수 있습니다.
 - 지도 기능은 사진 EXIF의 GPS 정보가 있어야 동작합니다.
+
+## 개발 및 테스트
+
+개발 도구는 런타임 의존성과 함께 설치됩니다.
+
+```bash
+python -m pip install -r requirements-dev.txt
+```
+
+전체 테스트와 정적 검사는 다음 명령으로 실행합니다.
+
+```bash
+python -m pytest
+ruff check .
+```
+
+디스플레이가 없는 CI 또는 서버에서는 Qt를 offscreen 모드로 실행할 수 있습니다.
+
+```bash
+QT_QPA_PLATFORM=offscreen python -m pytest
+```
+
+회귀 테스트는 YOLO 모델 추론과 브라우저 실행을 대체 객체로 격리하며, 프로젝트의
+`detected_files/` 또는 `runs/` 폴더에 결과 파일을 만들지 않습니다.
 
 ## 문의
 
