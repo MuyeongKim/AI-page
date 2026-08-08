@@ -93,6 +93,10 @@ detected_files/
 outputs/
 results/
 
+# Generated GPS Map Files
+/map*.html
+/mypackage/map*.html
+
 # Jupyter Notebook
 .ipynb_checkpoints/
 *.ipynb_checkpoints

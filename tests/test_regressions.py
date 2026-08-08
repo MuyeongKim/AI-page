@@ -117,8 +117,8 @@ def test_source_placeholder_and_browse_controls_reset(main_window):
     assert main_window.file_count == 0
     assert main_window.lineEdit_juso.text() == ""
     assert main_window.lineEdit_juso.placeholderText() == default_placeholder
-    assert main_window.pushButton_search.isEnabled()
-    assert main_window.pushButton_search_2.isEnabled()
+    assert not main_window.pushButton_search.isEnabled()
+    assert not main_window.pushButton_search_2.isEnabled()
 
 
 class _Scalar:

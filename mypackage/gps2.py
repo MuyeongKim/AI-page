@@ -14,6 +14,7 @@
 #                                                                                             #  
 ###############################################################################################
 import atexit
+import os
 import threading
 import webbrowser
 from functools import partial
@@ -29,6 +30,16 @@ _MAP_SERVER_THREAD = None
 _MAP_SERVER_ROOT = None
 _MAP_SERVER_FILE = None
 _IMAGE_EXTENSIONS = (".jpg", ".jpeg", ".png")
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+DEFAULT_MAP_OUTPUT_DIR = PROJECT_ROOT / "detected_files"
+
+# Callers can surface this notice before opening a generated map.
+USES_EXTERNAL_TILES = True
+MAP_STORES_EXACT_COORDINATES = True
+MAP_PRIVACY_NOTICE = (
+    "지도 HTML에는 정확한 GPS 좌표가 저장되며, 지도를 표시할 때 "
+    "OpenStreetMap 타일 서버로 네트워크 요청을 보냅니다."
+)
 
 
 class _LocalMapRequestHandler(SimpleHTTPRequestHandler):
@@ -126,9 +137,17 @@ def _open_map_in_browser(output_html):
     webbrowser.open(url)
 
 
+def _resolve_map_output_path(output_html):
+    """Resolve relative map paths inside the ignored detection output directory."""
+    output_path = Path(output_html).expanduser()
+    if not output_path.is_absolute():
+        output_path = DEFAULT_MAP_OUTPUT_DIR / output_path
+    return output_path.resolve()
+
+
 def _get_unique_output_path(output_html):
     """Return a path that does not overwrite an existing map file."""
-    output_path = Path(output_html).expanduser().resolve()
+    output_path = _resolve_map_output_path(output_html)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     if not output_path.exists():
@@ -142,6 +161,7 @@ def _get_unique_output_path(output_html):
         if not candidate.exists():
             return candidate
         counter += 1
+
 
 def extract_gps_data(image_path):
     """
@@ -178,6 +198,9 @@ def extract_gps_data(image_path):
 def plot_location_on_map(locations, output_html='map.html', open_browser=True):
     """
     Plot GPS locations on a map and save as an HTML file.
+
+    The HTML stores exact coordinates and loads external OpenStreetMap tiles.
+    Callers should show MAP_PRIVACY_NOTICE before invoking this function.
     """
     if not locations:
         print("No locations to plot.")
@@ -206,8 +229,12 @@ def plot_location_on_map(locations, output_html='map.html', open_browser=True):
 
 def list_original_images_in_folder(folder_path):
     """Return only top-level copied originals from the target folder."""
-    folder = Path(folder_path)
+    folder = Path(folder_path).expanduser()
     image_paths = []
+
+    if not folder.is_dir():
+        print("GPS 분석 폴더를 찾을 수 없습니다.")
+        return image_paths
 
     for path in sorted(folder.iterdir()):
         if not path.is_file():
@@ -223,22 +250,50 @@ def list_original_images_in_folder(folder_path):
     return image_paths
 
 
-def process_image_paths(image_paths, output_html='map.html', open_browser=True):
-    """Extract GPS data from the current image list only."""
+def process_image_paths(
+    image_paths,
+    output_html="map.html",
+    open_browser=True,
+    output_directory=None,
+):
+    """Extract GPS data from current images, isolating per-file EXIF failures.
+
+    Relative output names are stored in DEFAULT_MAP_OUTPUT_DIR. Pass
+    output_directory to select an explicit detection or user-data directory.
+    """
+    if isinstance(image_paths, (str, os.PathLike)):
+        image_paths = [image_paths]
+
     locations = []
     seen_paths = set()
 
-    for image_path in image_paths:
-        normalized_path = str(image_path)
+    for image_path in image_paths or []:
+        try:
+            path = Path(image_path).expanduser()
+            normalized_path = str(path.resolve())
+        except (TypeError, ValueError, OSError, RuntimeError):
+            print("올바르지 않은 GPS 분석 경로를 건너뜁니다.")
+            continue
+
         if normalized_path in seen_paths:
             continue
 
         seen_paths.add(normalized_path)
-        gps_data = extract_gps_data(normalized_path)
+        if not path.is_file() or path.suffix.lower() not in _IMAGE_EXTENSIONS:
+            continue
+
+        try:
+            gps_data = extract_gps_data(path)
+        except Exception as error:
+            print(f"GPS 정보를 읽지 못했습니다 ({path.name}): {error}")
+            continue
+
         if gps_data:
             locations.append(gps_data)
 
     if locations:
+        if output_directory is not None:
+            output_html = Path(output_directory).expanduser() / Path(output_html).name
         plot_location_on_map(locations, output_html=output_html, open_browser=open_browser)
         print(f"탐지된 위치가 지도에 {len(locations)}곳이 표시되었습니다.")
         return len(locations)
@@ -246,7 +301,12 @@ def process_image_paths(image_paths, output_html='map.html', open_browser=True):
     print("탐지된 위치가 없습니다.")
     return 0
 
-def process_images_in_folder(folder_path, image_paths=None):
+def process_images_in_folder(
+    folder_path,
+    image_paths=None,
+    output_directory=None,
+    open_browser=True,
+):
     """
     Process explicit paths, or preserve the legacy original_* folder scan.
 
@@ -254,4 +314,8 @@ def process_images_in_folder(folder_path, image_paths=None):
     """
     if image_paths is None:
         image_paths = list_original_images_in_folder(folder_path)
-    return process_image_paths(image_paths)
+    return process_image_paths(
+        image_paths,
+        output_directory=output_directory,
+        open_browser=open_browser,
+    )
