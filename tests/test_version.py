@@ -24,6 +24,7 @@ def test_current_release_drives_version_title_and_gui_changelog():
     assert CURRENT_RELEASE.display_version in CURRENT_RELEASE.window_title
     assert "2026.08.17 V26.08.17 운영 안전성 개선" in changelog
     assert "미리보기를 최신 프레임 1장·20fps로 표시" in changelog
+    assert "랜딩페이지 관리자 공지와 GUI 온라인 소식을 공통 피드로 연동" in changelog
     assert "2026.08.08 안정성 및 사용성 개선" in changelog
     assert "README·라이선스 고지·결과 무결성 회귀 테스트 최신화" in changelog
 

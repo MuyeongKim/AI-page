@@ -30,7 +30,19 @@ def test_get_latest_version_requests_server_when_network_is_available(monkeypatc
             return None
 
         def json(self):
-            return {"version": "26.04.10"}
+            return {
+                "version": "26.04.10",
+                "download_url": None,
+                "download": {
+                    "status": "preparing",
+                    "provider": "google_drive",
+                    "platform": "Windows",
+                    "filename": None,
+                    "url": None,
+                    "size_bytes": None,
+                    "sha256": None,
+                },
+            }
 
     def fake_get(*args, **kwargs):
         request_calls.append((args, kwargs))

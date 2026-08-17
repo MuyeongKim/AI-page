@@ -28,6 +28,7 @@ YOLO와 PySide6로 구성한 데스크톱 AI 객체 탐지 프로그램입니다
 - 작은 화면에서도 사용할 수 있는 스크롤 레이아웃과 키보드·스크린리더 보조 정보
 - GPS 정보가 포함된 원본 사진 기준으로 지도 생성
 - 오프라인에서는 빠르게 건너뛰는 버전 확인 기능
+- GitHub의 공지 피드를 비동기로 확인하는 GUI 온라인 소식 영역
 - 메모리 모니터링 및 정리 로직 포함
 
 ## 실행 환경
@@ -115,6 +116,10 @@ AI-page/
 ├─ LICENSE                       # 프로젝트 AGPL-3.0 라이선스
 ├─ THIRD_PARTY_NOTICES.md        # 제3자 구성요소 고지
 ├─ latest_version.json           # 최신 버전 정보
+├─ site_updates.json             # 웹·GUI 공용 온라인 공지 형식과 빌드 fallback
+├─ scripts/
+│  └─ export_release.py          # 로컬 버전에서 공개 릴리스 피드 생성·검증
+├─ site/                         # Astro 랜딩페이지·관리자 화면·Vercel API
 ├─ memory_monitor.py             # 메모리 모니터링 도구
 ├─ memory_optimization_example.py# 메모리 최적화 예시
 ├─ mypackage/
@@ -123,6 +128,7 @@ AI-page/
 │  ├─ start.py                   # 인증 및 시작 로직
 │  ├─ version.py                 # 로컬 버전·GUI 변경 이력의 단일 원본
 │  ├─ check_version.py           # 버전 확인 로직
+│  ├─ notices.py                 # 온라인 공지 조회·검증·로컬 캐시
 │  ├─ gps2.py                    # GPS 지도 생성 로직
 │  ├─ video_source.py            # 영상·캡처보드 입력 정규화
 │  ├─ AI-History.md              # 버전 히스토리
@@ -140,6 +146,7 @@ AI-page/
 - 실제 처리 프레임 수와 출력 영상 전체 재디코딩 수가 일치할 때만 최종 결과로 저장
 - OpenCV 정보만으로 손상 입력과 더 긴 오디오 트랙을 구분할 수 없는 경우, 검증된 영상 결과를 삭제하지 않고 `부분 완료`와 주의 사항으로 보존
 - 캡처보드 읽기 종료를 정상 완료가 아닌 입력 연결 끊김으로 표시
+- 랜딩페이지 관리자 공지와 GUI 온라인 소식을 GitHub 공통 피드로 연동
 - GUI 미리보기를 최신 프레임 1장·20fps 구조로 변경해 프레임 누적 방지
 - 버전·창 제목·GUI 변경 이력 단일화와 원격 버전 피드 불일치 테스트 추가
 
@@ -195,6 +202,46 @@ ruff check .
 로컬 버전, GUI 창 제목과 GUI 변경 이력은 `mypackage/version.py`에서 함께 관리합니다.
 릴리스 전에 실행되는 테스트는 이 정보가 원격 최신 버전 피드인
 `latest_version.json`의 버전·릴리스 날짜와 일치하는지도 확인합니다.
+
+공개 릴리스 피드는 다음 명령으로 생성하거나 읽기 전용으로 검증합니다. 새 버전에서는
+이전 EXE 링크를 자동으로 폐기하고 Windows 배포본을 `준비 중` 상태로 초기화합니다.
+
+```bash
+python scripts/export_release.py
+python scripts/export_release.py --check
+```
+
+검증된 Windows 배포 파일을 Google Drive에 올린 뒤에는 실제 로컬 파일을 지정해
+파일명·크기·SHA-256을 자동 계산하고 다운로드를 활성화합니다.
+
+```bash
+python scripts/export_release.py \
+  --download-file /path/to/AI-object-detection.exe \
+  --download-url https://drive.google.com/file/d/FILE_ID/view
+```
+
+공개 전에는 로그아웃 또는 비공개 브라우저에서도 Google Drive 다운로드가 가능한지
+확인하고, 내려받은 파일의 SHA-256이 원본과 같은지 별도로 대조해야 합니다.
+
+`site/` 랜딩페이지는 이 피드를 빌드 시 직접 읽으므로 버전·날짜·변경 사항과 Google
+Drive 다운로드 상태를 페이지에 다시 입력하지 않습니다. 로컬 사이트 검증은 다음과 같이
+실행합니다.
+
+기존 Gamma 공개페이지의 프로그램 화면과 현장 시연 사진은 새 랜딩페이지의 Hero와
+`현장 사진` 영역에 선별 보존합니다. 구형 화면은 현재 버전과 혼동되지 않도록 당시 버전을
+명시하고, 사진 속 탐지 수치는 성능 보증이 아니라 시연 기록으로 안내합니다.
+
+```bash
+cd site
+npm ci
+npm test
+```
+
+일반 공지와 운영 안내는 릴리스 정보와 분리된 `site_updates.json` 계약을 사용합니다.
+Vercel의 `/admin`에서 저장하면 GitHub `content` 브랜치에 자동 기록되고, 랜딩페이지와
+GUI의 `온라인 소식` 영역이 같은 공개 피드를 비동기로 확인합니다. 조회 실패는 객체 탐지
+실행을 막지 않으며 GUI는 마지막 정상 캐시를 사용합니다. 관리자 환경변수와 최초
+`content` 브랜치 설정 방법은 [`site/README.md`](site/README.md)를 참고하세요.
 
 디스플레이가 없는 CI 또는 서버에서는 Qt를 offscreen 모드로 실행할 수 있습니다.
 

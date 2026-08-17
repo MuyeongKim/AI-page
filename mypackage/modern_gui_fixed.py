@@ -201,6 +201,16 @@ class ModernUi_MainWindow(object):
         self.plainTextEdit.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.plainTextEdit.setMinimumHeight(150)
 
+        self.label_online_notice = QLabel("온라인 소식")
+        self.label_online_notice.setObjectName("label_online_notice")
+        self.plainTextEdit_online_notice = QPlainTextEdit()
+        self.plainTextEdit_online_notice.setObjectName("plainTextEdit_online_notice")
+        self.plainTextEdit_online_notice.setReadOnly(True)
+        self.plainTextEdit_online_notice.setSizePolicy(
+            QSizePolicy.Expanding, QSizePolicy.Expanding
+        )
+        self.plainTextEdit_online_notice.setMinimumHeight(150)
+
         self.label_11 = QLabel("This program utilizes Ultralytics YOLO, licensed under AGPL-3.0.")
         self.label_11.setObjectName("label_11")
 
@@ -311,8 +321,20 @@ class ModernUi_MainWindow(object):
         desc_layout.addWidget(self.label_6)
         desc_layout.addWidget(self.plainTextEdit)
 
+        self.infoCardOnlineNotice = QFrame()
+        self.infoCardOnlineNotice.setObjectName("infoCardOnlineNotice")
+        online_notice_layout = QVBoxLayout(self.infoCardOnlineNotice)
+        online_notice_layout.setContentsMargins(18, 16, 18, 16)
+        online_notice_layout.setSpacing(10)
+        online_notice_layout.addWidget(self.label_online_notice)
+        online_notice_layout.addWidget(self.plainTextEdit_online_notice)
+
         self.infoTabs.addTab(self.infoCardHowTo, "사용 방법")
         self.infoTabs.addTab(self.infoCardDesc, "프로그램 안내")
+        self.online_notice_tab_index = self.infoTabs.addTab(
+            self.infoCardOnlineNotice, "온라인 소식"
+        )
+        self.infoTabs.setTabVisible(self.online_notice_tab_index, False)
         self.main_layout.addWidget(self.infoTabs)
 
     def _build_footer(self):
@@ -439,6 +461,10 @@ class ModernUi_MainWindow(object):
 
         self.plainTextEdit_2.setAccessibleName("사용 방법")
         self.plainTextEdit.setAccessibleName("프로그램 안내")
+        self.plainTextEdit_online_notice.setAccessibleName("온라인 소식 내용")
+        self.plainTextEdit_online_notice.setAccessibleDescription(
+            "인터넷에서 불러온 공개 공지와 업데이트 소식을 표시합니다."
+        )
         self.infoTabs.setAccessibleName("도움말과 프로그램 안내")
 
         self.open_shortcut = QShortcut(QKeySequence(QKeySequence.StandardKey.Open), MainWindow)
@@ -494,14 +520,15 @@ class ModernUi_MainWindow(object):
             padding-top: 4px;
         }
 
-        QFrame#settings_card, QFrame#infoCardHowTo, QFrame#infoCardDesc {
+        QFrame#settings_card, QFrame#infoCardHowTo, QFrame#infoCardDesc,
+        QFrame#infoCardOnlineNotice {
             background: #fffdf9;
             border: 1px solid #e8dccb;
             border-radius: 18px;
         }
 
         QLabel#label_3, QLabel#label_4, QLabel#label_5, QLabel#label_7, QLabel#label_10,
-        QLabel#label_9, QLabel#label_6 {
+        QLabel#label_9, QLabel#label_6, QLabel#label_online_notice {
             color: #0f3d3a;
             font-size: 13px;
             font-weight: 700;

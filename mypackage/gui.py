@@ -38,7 +38,7 @@ from uuid import uuid4
 import cv2  # OpenCV 추가
 import numpy as np  # Numpy 추가
 import torch
-from PySide6.QtCore import Qt, QThread, QTimer, Signal, Slot
+from PySide6.QtCore import QSettings, Qt, QThread, QTimer, Signal, Slot
 from PySide6.QtGui import QImage, QPixmap
 from PySide6.QtWidgets import (
     QApplication,
@@ -56,6 +56,7 @@ from ultralytics import YOLO
 
 from mypackage import gps2, start
 from mypackage.modern_gui_fixed import ModernUi_MainWindow
+from mypackage.notices import NOTICE_SOURCE_CACHE, NoticeLoadResult, OnlineNoticeLoader
 from mypackage.video_source import (
     CAPTURE_BOARD_SOURCE,
     VIDEO_FILE_SOURCE,
@@ -76,6 +77,16 @@ DETECTION_STATUS_PARTIAL = "partial"
 DETECTION_STATUS_FAILED = "failed"
 DETECTION_STATUS_CANCELLED = "cancelled"
 DETECTION_STATUS_DISCONNECTED = "disconnected"
+NOTICE_SETTINGS_ORGANIZATION = "StayUpAI"
+NOTICE_SETTINGS_APPLICATION = "AIObjectDetection"
+NOTICE_SETTINGS_REVISION_KEY = "online_news/last_seen_revision"
+NOTICE_TAB_TITLE = "온라인 소식"
+NOTICE_TAB_UNREAD_TITLE = "온라인 소식 · 새 글"
+NOTICE_KIND_LABELS = {
+    "notice": "공지",
+    "release": "업데이트",
+    "maintenance": "점검",
+}
 
 
 def resolve_model_source(model_source):
@@ -978,6 +989,13 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
         self._preview_timer = QTimer(self)
         self._preview_timer.setInterval(PREVIEW_REFRESH_INTERVAL_MS)
         self._preview_timer.timeout.connect(self._display_pending_preview_frame)
+        self._online_notice_fetch_started = False
+        self._online_notice_revision = 0
+        self._online_notice_settings = QSettings(
+            NOTICE_SETTINGS_ORGANIZATION, NOTICE_SETTINGS_APPLICATION
+        )
+        self._online_notice_loader = OnlineNoticeLoader(self)
+        self._online_notice_loader.loaded.connect(self._display_online_notices)
 
         # 버튼 및 UI 요소 연결
         self.pushButton_close.clicked.connect(self.exit_application)
@@ -1001,6 +1019,7 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
             self.checkBox_person.stateChanged.connect(self.update_only_person)
             self.checkBox_car.stateChanged.connect(self.update_only_car)
         self.lineEdit_juso.textChanged.connect(self.update_juso)
+        self.infoTabs.currentChanged.connect(self._mark_online_notices_seen)
 
         # 🚀 메모리 모니터링 도구 초기화
         self.memory_monitor = MemoryMonitor()
@@ -1010,6 +1029,13 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
         self.update_action_states()
         self.set_main_status(f"준비됨 · 자동 장치: {self.device.upper()}")
         self.reset_preview("실시간 입력을 시작하면 미리보기 새창이 열립니다.")
+
+    def showEvent(self, event):
+        """Start the online-news request only after the main window is visible."""
+        super().showEvent(event)
+        if not self._online_notice_fetch_started:
+            self._online_notice_fetch_started = True
+            self._online_notice_loader.refresh()
 
     @staticmethod
     def run_app():
@@ -1053,6 +1079,63 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
     def set_main_status(self, message):
         if hasattr(self, "status_label"):
             self.status_label.setText(message)
+
+    @Slot(object)
+    def _display_online_notices(self, result):
+        """Render validated public items without interrupting the detection flow."""
+        if not isinstance(result, NoticeLoadResult) or not result.items:
+            self.infoTabs.setTabVisible(self.online_notice_tab_index, False)
+            self.plainTextEdit_online_notice.clear()
+            self._online_notice_revision = 0
+            return
+
+        sections = []
+        if result.source == NOTICE_SOURCE_CACHE:
+            sections.append(
+                "[안내] 네트워크에서 최신 소식을 확인하지 못해 마지막으로 저장된 내용을 표시합니다."
+            )
+        for item in result.items:
+            published_text = item.published_at.astimezone().strftime("%Y-%m-%d %H:%M")
+            kind_text = NOTICE_KIND_LABELS.get(item.kind, "소식")
+            heading = f"[{kind_text}] {item.title} · {published_text}"
+            details = [heading, item.summary]
+            if item.body != item.summary:
+                details.extend(("", item.body))
+            if item.version:
+                details.extend(("", f"대상 버전: {item.version}"))
+            if item.link_url:
+                details.append(f"자세히 보기: {item.link_url}")
+            sections.append("\n".join(details))
+
+        self.plainTextEdit_online_notice.setPlainText("\n\n──────────\n\n".join(sections))
+        self._online_notice_revision = result.revision
+        last_seen_revision = self._last_seen_notice_revision()
+        tab_title = (
+            NOTICE_TAB_UNREAD_TITLE
+            if result.revision > last_seen_revision
+            else NOTICE_TAB_TITLE
+        )
+        self.infoTabs.setTabText(self.online_notice_tab_index, tab_title)
+        self.infoTabs.setTabVisible(self.online_notice_tab_index, True)
+
+    def _last_seen_notice_revision(self):
+        value = self._online_notice_settings.value(NOTICE_SETTINGS_REVISION_KEY, 0)
+        try:
+            revision = int(value)
+        except (TypeError, ValueError):
+            return 0
+        return max(0, revision)
+
+    @Slot(int)
+    def _mark_online_notices_seen(self, index):
+        if index != self.online_notice_tab_index or not self._online_notice_revision:
+            return
+        last_seen_revision = self._last_seen_notice_revision()
+        if self._online_notice_revision > last_seen_revision:
+            self._online_notice_settings.setValue(
+                NOTICE_SETTINGS_REVISION_KEY, self._online_notice_revision
+            )
+        self.infoTabs.setTabText(self.online_notice_tab_index, NOTICE_TAB_TITLE)
 
     @Slot()
     def update_detection_target(self, _checked=None):
@@ -1196,6 +1279,9 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
         self._cleanup_done = True
 
         try:
+            if hasattr(self, "_online_notice_loader"):
+                self._online_notice_loader.cancel()
+
             # 🚀 메모리 사용량 최종 요약 출력
             if hasattr(self, "memory_monitor"):
                 print("=" * 50)

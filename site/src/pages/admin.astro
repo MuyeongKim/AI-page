@@ -1,0 +1,797 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+---
+
+<BaseLayout
+  title="업데이트 관리자 | AI 객체 탐지"
+  description="AI 객체 탐지 프로그램의 온라인 공지를 관리하는 전용 화면입니다."
+  noindex={true}
+>
+  <header class="site-header admin-site-header">
+    <div class="container header-inner">
+      <a class="brand" href="/" aria-label="AI 객체 탐지 프로그램 홈으로 이동">
+        <span class="brand-mark" aria-hidden="true">SU</span>
+        <span>AI 객체 탐지</span>
+      </a>
+      <span class="admin-header-label">관리자 전용</span>
+    </div>
+  </header>
+
+  <main id="main-content" class="admin-main">
+    <section class="admin-page" aria-labelledby="admin-title">
+      <div class="container admin-container">
+        <div class="admin-page-heading">
+          <p class="section-kicker">UPDATE MANAGER</p>
+          <h1 id="admin-title">온라인 업데이트<br />소식 관리</h1>
+          <p>
+            랜딩페이지와 데스크톱 프로그램에 전달할 공지를 작성합니다. 프로그램 코드·실제
+            버전·배포 파일·Google Drive 주소·파일 체크섬은 이 화면에서 변경할 수 없습니다.
+          </p>
+        </div>
+
+        <p class="admin-session-status" id="admin-session-status" role="status" aria-live="polite">
+          관리자 세션을 확인하고 있습니다.
+        </p>
+
+        <noscript>
+          <p class="admin-alert">관리자 화면을 사용하려면 브라우저의 JavaScript를 켜야 합니다.</p>
+        </noscript>
+
+        <section class="admin-login-card" id="admin-login-view" aria-labelledby="login-title" hidden>
+          <div>
+            <span class="admin-card-label">SECURE ACCESS</span>
+            <h2 id="login-title">관리자 로그인</h2>
+            <p>설정된 관리자 비밀번호를 입력하세요. 비밀번호는 브라우저에 저장하지 않습니다.</p>
+          </div>
+          <form id="admin-login-form" class="admin-login-form">
+            <label for="admin-password">관리자 비밀번호</label>
+            <div class="admin-login-row">
+              <input
+                id="admin-password"
+                name="password"
+                type="password"
+                autocomplete="current-password"
+                minlength="12"
+                maxlength="1024"
+                required
+              />
+              <button class="button button-primary" type="submit">로그인</button>
+            </div>
+            <p class="admin-form-message" id="login-message" role="alert"></p>
+          </form>
+        </section>
+
+        <section class="admin-workspace" id="admin-workspace" aria-labelledby="workspace-title" hidden>
+          <div class="admin-toolbar">
+            <div>
+              <span class="admin-card-label">SIGNED IN</span>
+              <h2 id="workspace-title">업데이트 편집</h2>
+              <p>
+                저장된 내용은 코드 배포와 분리된 온라인 공지 전용 이력에 기록됩니다.
+              </p>
+            </div>
+            <button class="button button-outline admin-logout-button" id="admin-logout" type="button">
+              로그아웃
+            </button>
+          </div>
+
+          <div class="admin-summary" role="group" aria-label="업데이트 현황">
+            <div><span>현재 리비전</span><strong id="admin-revision">-</strong></div>
+            <div><span>전체 글</span><strong id="admin-total-count">-</strong></div>
+            <div><span>게시 중</span><strong id="admin-published-count">-</strong></div>
+          </div>
+
+          <div class="admin-work-grid">
+            <section class="admin-editor-card" aria-labelledby="editor-title">
+              <div class="admin-card-heading">
+                <div>
+                  <span class="admin-card-label">EDITOR</span>
+                  <h3 id="editor-title">새 공지 작성</h3>
+                </div>
+                <button class="admin-text-button" id="admin-new-item" type="button">새 글</button>
+              </div>
+
+              <form id="admin-update-form" class="admin-update-form">
+                <label for="update-kind">분류</label>
+                <select id="update-kind" name="kind" required>
+                  <option value="notice">공지</option>
+                  <option value="release">업데이트 안내</option>
+                  <option value="maintenance">운영 안내</option>
+                </select>
+
+                <label for="update-version">관련 버전 <span>(선택)</span></label>
+                <input
+                  id="update-version"
+                  name="version"
+                  type="text"
+                  maxlength="40"
+                  placeholder="예: 26.08.17"
+                  autocomplete="off"
+                />
+                <p class="admin-field-help">
+                  공지와 연결해 보여줄 표기입니다. 실제 프로그램 버전은 변경되지 않습니다.
+                </p>
+
+                <label for="update-title">제목</label>
+                <input
+                  id="update-title"
+                  name="title"
+                  type="text"
+                  maxlength="120"
+                  autocomplete="off"
+                  required
+                />
+
+                <label for="update-summary">한 줄 요약</label>
+                <textarea
+                  id="update-summary"
+                  name="summary"
+                  rows="3"
+                  maxlength="300"
+                  required></textarea>
+
+                <label for="update-body">상세 내용</label>
+                <textarea
+                  id="update-body"
+                  name="body"
+                  rows="8"
+                  maxlength="5000"
+                  required></textarea>
+
+                <label for="update-link">관련 링크 <span>(선택)</span></label>
+                <input
+                  id="update-link"
+                  name="link_url"
+                  type="url"
+                  inputmode="url"
+                  maxlength="2048"
+                  placeholder="https://"
+                  autocomplete="url"
+                />
+                <p class="admin-field-help">보안을 위해 HTTPS 주소만 사용할 수 있습니다.</p>
+
+                <fieldset class="admin-audience-fieldset">
+                  <legend>표시 위치</legend>
+                  <label>
+                    <input type="checkbox" name="audiences" value="web" checked />
+                    <span>랜딩페이지</span>
+                  </label>
+                  <label>
+                    <input type="checkbox" name="audiences" value="desktop" checked />
+                    <span>데스크톱 프로그램</span>
+                  </label>
+                  <p class="admin-field-help">한 곳 이상 선택해야 합니다.</p>
+                </fieldset>
+
+                <div class="admin-form-actions">
+                  <button class="button button-primary" id="admin-save-button" type="submit">
+                    초안 저장
+                  </button>
+                  <button
+                    class="button button-outline"
+                    id="admin-cancel-edit"
+                    type="button"
+                    hidden>수정 취소</button
+                  >
+                </div>
+                <p class="admin-form-message" id="editor-message" role="status" aria-live="polite"></p>
+              </form>
+            </section>
+
+            <section class="admin-list-panel" aria-labelledby="admin-list-title">
+              <div class="admin-card-heading">
+                <div>
+                  <span class="admin-card-label">PUBLISHING</span>
+                  <h3 id="admin-list-title">업데이트 목록</h3>
+                </div>
+                <button class="admin-text-button" id="admin-refresh" type="button">새로고침</button>
+              </div>
+              <p class="admin-list-status" id="admin-list-status" role="status" aria-live="polite">
+                업데이트를 불러오고 있습니다.
+              </p>
+              <div class="admin-update-list" id="admin-update-list" aria-busy="true"></div>
+            </section>
+          </div>
+        </section>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer admin-footer">
+    <div class="container footer-bottom">
+      <span>AI 객체 탐지 업데이트 관리자</span>
+      <a href="/">공개 페이지로 돌아가기</a>
+    </div>
+  </footer>
+
+  <script>
+    type UpdateKind = "notice" | "release" | "maintenance";
+    type UpdateStatus = "draft" | "published" | "archived";
+    type UpdateAudience = "web" | "desktop";
+
+    interface AdminUpdate {
+      id: string;
+      kind: UpdateKind;
+      status: UpdateStatus;
+      title: string;
+      summary: string;
+      body: string;
+      version: string | null;
+      audiences: UpdateAudience[];
+      link_url: string | null;
+      published_at: string | null;
+      created_at: string;
+      updated_at: string;
+    }
+
+    interface AdminFeed {
+      schema_version: number;
+      revision: number;
+      updated_at: string;
+      items: AdminUpdate[];
+    }
+
+    interface ApiErrorPayload {
+      error?: {
+        message?: string;
+      };
+    }
+
+    class AdminApiError extends Error {
+      status: number;
+
+      constructor(message: string, status: number) {
+        super(message);
+        this.name = "AdminApiError";
+        this.status = status;
+      }
+    }
+
+    const sessionStatus = document.querySelector<HTMLElement>("#admin-session-status");
+    const loginView = document.querySelector<HTMLElement>("#admin-login-view");
+    const workspace = document.querySelector<HTMLElement>("#admin-workspace");
+    const loginForm = document.querySelector<HTMLFormElement>("#admin-login-form");
+    const loginMessage = document.querySelector<HTMLElement>("#login-message");
+    const passwordInput = document.querySelector<HTMLInputElement>("#admin-password");
+    const logoutButton = document.querySelector<HTMLButtonElement>("#admin-logout");
+    const updateForm = document.querySelector<HTMLFormElement>("#admin-update-form");
+    const editorTitle = document.querySelector<HTMLElement>("#editor-title");
+    const editorMessage = document.querySelector<HTMLElement>("#editor-message");
+    const saveButton = document.querySelector<HTMLButtonElement>("#admin-save-button");
+    const cancelEditButton = document.querySelector<HTMLButtonElement>("#admin-cancel-edit");
+    const newItemButton = document.querySelector<HTMLButtonElement>("#admin-new-item");
+    const refreshButton = document.querySelector<HTMLButtonElement>("#admin-refresh");
+    const updateList = document.querySelector<HTMLElement>("#admin-update-list");
+    const listStatus = document.querySelector<HTMLElement>("#admin-list-status");
+    const revisionValue = document.querySelector<HTMLElement>("#admin-revision");
+    const totalCount = document.querySelector<HTMLElement>("#admin-total-count");
+    const publishedCount = document.querySelector<HTMLElement>("#admin-published-count");
+
+    const kindInput = document.querySelector<HTMLSelectElement>("#update-kind");
+    const versionInput = document.querySelector<HTMLInputElement>("#update-version");
+    const titleInput = document.querySelector<HTMLInputElement>("#update-title");
+    const summaryInput = document.querySelector<HTMLTextAreaElement>("#update-summary");
+    const bodyInput = document.querySelector<HTMLTextAreaElement>("#update-body");
+    const linkInput = document.querySelector<HTMLInputElement>("#update-link");
+    const audienceInputs = [
+      ...document.querySelectorAll<HTMLInputElement>('input[name="audiences"]'),
+    ];
+
+    let currentItems: AdminUpdate[] = [];
+    let editingId: string | null = null;
+
+    const setText = (element: HTMLElement | null, text: string) => {
+      if (element) element.textContent = text;
+    };
+
+    async function adminRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
+      if (!path.startsWith("/api/admin/")) {
+        throw new Error("관리자 API 경로가 아닙니다.");
+      }
+      const headers = new Headers(init.headers);
+      headers.set("Accept", "application/json");
+      if (init.body) headers.set("Content-Type", "application/json");
+      const response = await fetch(path, {
+        ...init,
+        headers,
+        credentials: "same-origin",
+        cache: "no-store",
+      });
+      let payload: unknown = null;
+      try {
+        payload = await response.json();
+      } catch {
+        // 상태 코드가 오류를 충분히 설명하므로 빈 응답은 아래에서 처리합니다.
+      }
+      if (!response.ok) {
+        const errorPayload = payload as ApiErrorPayload | null;
+        const message =
+          errorPayload?.error?.message ??
+          (response.status === 401
+            ? "로그인이 만료되었거나 비밀번호가 올바르지 않습니다."
+            : "요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.");
+        throw new AdminApiError(message, response.status);
+      }
+      return payload as T;
+    }
+
+    const formatDateTime = (value: string | null) => {
+      if (!value) return "미게시";
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return "날짜 확인 필요";
+      return new Intl.DateTimeFormat("ko-KR", {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+      }).format(date);
+    };
+
+    const safeHttpsUrl = (value: string | null) => {
+      if (!value) return null;
+      try {
+        const url = new URL(value);
+        return url.protocol === "https:" && !url.username && !url.password
+          ? url.toString()
+          : null;
+      } catch {
+        return null;
+      }
+    };
+
+    const isAdminUpdate = (value: unknown): value is AdminUpdate => {
+      if (!value || typeof value !== "object") return false;
+      const item = value as Record<string, unknown>;
+      return (
+        typeof item.id === "string" &&
+        ["notice", "release", "maintenance"].includes(String(item.kind)) &&
+        ["draft", "published", "archived"].includes(String(item.status)) &&
+        typeof item.title === "string" &&
+        typeof item.summary === "string" &&
+        typeof item.body === "string" &&
+        (item.version === null || typeof item.version === "string") &&
+        Array.isArray(item.audiences) &&
+        item.audiences.every((audience) => audience === "web" || audience === "desktop") &&
+        (item.link_url === null || typeof item.link_url === "string") &&
+        (item.published_at === null || typeof item.published_at === "string") &&
+        typeof item.created_at === "string" &&
+        typeof item.updated_at === "string"
+      );
+    };
+
+    const parseFeed = (value: unknown): AdminFeed => {
+      if (!value || typeof value !== "object") throw new Error("invalid feed");
+      const candidate = value as Partial<AdminFeed>;
+      if (
+        candidate.schema_version !== 1 ||
+        typeof candidate.revision !== "number" ||
+        !Number.isSafeInteger(candidate.revision) ||
+        typeof candidate.updated_at !== "string" ||
+        !Array.isArray(candidate.items) ||
+        !candidate.items.every(isAdminUpdate)
+      ) {
+        throw new Error("invalid feed");
+      }
+      return candidate as AdminFeed;
+    };
+
+    const extractFeed = (value: unknown) => {
+      if (value && typeof value === "object" && "feed" in value) {
+        return parseFeed((value as { feed: unknown }).feed);
+      }
+      return parseFeed(value);
+    };
+
+    const showLogin = (message = "") => {
+      if (workspace) workspace.hidden = true;
+      if (loginView) loginView.hidden = false;
+      setText(sessionStatus, "관리자 로그인이 필요합니다.");
+      setText(loginMessage, message);
+      passwordInput?.focus();
+    };
+
+    const showWorkspace = () => {
+      if (loginView) loginView.hidden = true;
+      if (workspace) workspace.hidden = false;
+      setText(sessionStatus, "관리자 로그인 상태입니다.");
+    };
+
+    const handleAdminError = (error: unknown, target: HTMLElement | null) => {
+      if (error instanceof AdminApiError && error.status === 401) {
+        showLogin("로그인 세션이 만료되었습니다. 다시 로그인해 주세요.");
+        return;
+      }
+      setText(
+        target,
+        error instanceof Error
+          ? error.message
+          : "요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.",
+      );
+    };
+
+    const statusLabels: Record<UpdateStatus, string> = {
+      draft: "초안",
+      published: "게시 중",
+      archived: "게시 중단",
+    };
+    const kindLabels: Record<UpdateKind, string> = {
+      notice: "공지",
+      release: "업데이트 안내",
+      maintenance: "운영 안내",
+    };
+    const audienceLabels: Record<UpdateAudience, string> = {
+      web: "랜딩페이지",
+      desktop: "데스크톱",
+    };
+
+    const createActionButton = (label: string, className: string, action: () => void) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = className;
+      button.textContent = label;
+      button.addEventListener("click", action);
+      return button;
+    };
+
+    const startEditing = (item: AdminUpdate) => {
+      editingId = item.id;
+      if (kindInput) kindInput.value = item.kind;
+      if (versionInput) versionInput.value = item.version ?? "";
+      if (titleInput) titleInput.value = item.title;
+      if (summaryInput) summaryInput.value = item.summary;
+      if (bodyInput) bodyInput.value = item.body;
+      if (linkInput) linkInput.value = item.link_url ?? "";
+      audienceInputs.forEach((input) => {
+        input.checked = item.audiences.includes(input.value as UpdateAudience);
+      });
+      setText(editorTitle, "업데이트 수정");
+      setText(saveButton, "변경 저장");
+      if (cancelEditButton) cancelEditButton.hidden = false;
+      setText(editorMessage, `「${item.title}」을 수정하고 있습니다.`);
+      titleInput?.focus();
+      document.querySelector(".admin-editor-card")?.scrollIntoView({
+        behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+        block: "start",
+      });
+    };
+
+    const resetEditor = (focus = false) => {
+      editingId = null;
+      updateForm?.reset();
+      if (kindInput) kindInput.value = "notice";
+      audienceInputs.forEach((input) => {
+        input.checked = true;
+        input.setCustomValidity("");
+      });
+      setText(editorTitle, "새 공지 작성");
+      setText(saveButton, "초안 저장");
+      if (cancelEditButton) cancelEditButton.hidden = true;
+      setText(editorMessage, "");
+      if (focus) titleInput?.focus();
+    };
+
+    const renderAdminList = () => {
+      if (!updateList) return;
+      updateList.replaceChildren();
+      if (currentItems.length === 0) {
+        const empty = document.createElement("p");
+        empty.className = "admin-empty-state";
+        empty.textContent = "아직 작성된 업데이트가 없습니다.";
+        updateList.append(empty);
+        return;
+      }
+
+      const sortedItems = [...currentItems].sort(
+        (left, right) => Date.parse(right.updated_at) - Date.parse(left.updated_at),
+      );
+      const fragment = document.createDocumentFragment();
+      sortedItems.forEach((item) => {
+        const article = document.createElement("article");
+        article.className = "admin-update-item";
+
+        const meta = document.createElement("div");
+        meta.className = "admin-item-meta";
+        const status = document.createElement("span");
+        status.className = `admin-status-pill is-${item.status}`;
+        status.textContent = statusLabels[item.status];
+        const kind = document.createElement("span");
+        kind.textContent = kindLabels[item.kind];
+        const version = document.createElement("span");
+        version.textContent = item.version ? `V${item.version.replace(/^V/i, "")}` : "버전 연결 없음";
+        const updated = document.createElement("time");
+        updated.dateTime = item.updated_at;
+        updated.textContent = `수정 ${formatDateTime(item.updated_at)}`;
+        meta.append(status, kind, version, updated);
+
+        const title = document.createElement("h4");
+        title.textContent = item.title;
+        const summary = document.createElement("p");
+        summary.className = "admin-item-summary";
+        summary.textContent = item.summary;
+
+        const details = document.createElement("details");
+        details.className = "admin-item-details";
+        const detailsSummary = document.createElement("summary");
+        detailsSummary.textContent = "상세 내용 보기";
+        const body = document.createElement("p");
+        body.textContent = item.body;
+        details.append(detailsSummary, body);
+
+        const audiences = document.createElement("p");
+        audiences.className = "admin-item-audiences";
+        audiences.textContent = `표시: ${item.audiences.map((value) => audienceLabels[value]).join(", ")}`;
+
+        article.append(meta, title, summary, details, audiences);
+
+        const linkUrl = safeHttpsUrl(item.link_url);
+        if (linkUrl) {
+          const link = document.createElement("a");
+          link.className = "admin-item-link";
+          link.href = linkUrl;
+          link.target = "_blank";
+          link.rel = "noopener noreferrer";
+          link.textContent = "관련 링크 확인 ↗";
+          article.append(link);
+        }
+
+        const actions = document.createElement("div");
+        actions.className = "admin-item-actions";
+        actions.append(
+          createActionButton("수정", "admin-small-button", () => startEditing(item)),
+        );
+        if (item.status === "published") {
+          actions.append(
+            createActionButton("게시 중단", "admin-small-button", () => {
+              void changeStatus(item, "archived");
+            }),
+          );
+        } else {
+          actions.append(
+            createActionButton("게시", "admin-small-button is-primary", () => {
+              void changeStatus(item, "published");
+            }),
+          );
+        }
+        actions.append(
+          createActionButton("삭제", "admin-small-button is-danger", () => {
+            void deleteItem(item);
+          }),
+        );
+        article.append(actions);
+        fragment.append(article);
+      });
+      updateList.append(fragment);
+    };
+
+    const applyFeed = (feed: AdminFeed, message: string) => {
+      currentItems = feed.items;
+      setText(revisionValue, String(feed.revision));
+      setText(totalCount, String(feed.items.length));
+      setText(
+        publishedCount,
+        String(feed.items.filter((item) => item.status === "published").length),
+      );
+      renderAdminList();
+      setText(listStatus, message);
+      updateList?.setAttribute("aria-busy", "false");
+    };
+
+    const loadUpdates = async () => {
+      updateList?.setAttribute("aria-busy", "true");
+      setText(listStatus, "업데이트를 불러오고 있습니다.");
+      try {
+        const payload = await adminRequest<unknown>("/api/admin/updates");
+        applyFeed(extractFeed(payload), "업데이트 목록을 불러왔습니다.");
+      } catch (error) {
+        updateList?.setAttribute("aria-busy", "false");
+        handleAdminError(error, listStatus);
+      }
+    };
+
+    const changeStatus = async (item: AdminUpdate, status: UpdateStatus) => {
+      const action = status === "published" ? "게시" : "게시 중단";
+      if (!window.confirm(`「${item.title}」을 ${action}하시겠습니까?`)) return;
+      setText(listStatus, `${action} 요청을 처리하고 있습니다.`);
+      try {
+        const changes: Record<string, unknown> = { status };
+        if (status === "published") changes.published_at = new Date().toISOString();
+        const payload = await adminRequest<unknown>("/api/admin/updates", {
+          method: "PATCH",
+          body: JSON.stringify({ id: item.id, changes }),
+        });
+        applyFeed(extractFeed(payload), `${action} 상태를 반영했습니다.`);
+      } catch (error) {
+        handleAdminError(error, listStatus);
+      }
+    };
+
+    const deleteItem = async (item: AdminUpdate) => {
+      if (!window.confirm(`「${item.title}」을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`)) {
+        return;
+      }
+      setText(listStatus, "삭제 요청을 처리하고 있습니다.");
+      try {
+        const payload = await adminRequest<unknown>("/api/admin/updates", {
+          method: "DELETE",
+          body: JSON.stringify({ id: item.id }),
+        });
+        applyFeed(extractFeed(payload), "업데이트를 삭제했습니다.");
+        if (editingId === item.id) resetEditor();
+      } catch (error) {
+        handleAdminError(error, listStatus);
+      }
+    };
+
+    const validateAudiences = () => {
+      const hasAudience = audienceInputs.some((input) => input.checked);
+      const message = hasAudience ? "" : "표시 위치를 한 곳 이상 선택해 주세요.";
+      audienceInputs[0]?.setCustomValidity(message);
+      return hasAudience;
+    };
+
+    audienceInputs.forEach((input) => {
+      input.addEventListener("change", validateAudiences);
+    });
+    [versionInput, titleInput, summaryInput, bodyInput, linkInput].forEach((input) => {
+      input?.addEventListener("input", () => input.setCustomValidity(""));
+    });
+
+    loginForm?.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      if (!loginForm.reportValidity() || !passwordInput) return;
+      const submitButton = loginForm.querySelector<HTMLButtonElement>('button[type="submit"]');
+      if (submitButton) submitButton.disabled = true;
+      setText(loginMessage, "로그인하고 있습니다.");
+      try {
+        await adminRequest<unknown>("/api/admin/login", {
+          method: "POST",
+          body: JSON.stringify({ password: passwordInput.value }),
+        });
+        passwordInput.value = "";
+        setText(loginMessage, "");
+        showWorkspace();
+        await loadUpdates();
+        titleInput?.focus();
+      } catch (error) {
+        passwordInput.value = "";
+        setText(
+          loginMessage,
+          error instanceof Error
+            ? error.message
+            : "로그인 요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.",
+        );
+        passwordInput.focus();
+      } finally {
+        if (submitButton) submitButton.disabled = false;
+      }
+    });
+
+    logoutButton?.addEventListener("click", async () => {
+      logoutButton.disabled = true;
+      setText(sessionStatus, "로그아웃하고 있습니다.");
+      try {
+        await adminRequest<unknown>("/api/admin/logout", { method: "POST" });
+        currentItems = [];
+        resetEditor();
+        showLogin("안전하게 로그아웃했습니다.");
+      } catch (error) {
+        handleAdminError(error, sessionStatus);
+      } finally {
+        logoutButton.disabled = false;
+      }
+    });
+
+    updateForm?.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      if (!validateAudiences() || !updateForm.reportValidity()) return;
+      if (
+        !kindInput ||
+        !versionInput ||
+        !titleInput ||
+        !summaryInput ||
+        !bodyInput ||
+        !linkInput
+      ) {
+        return;
+      }
+
+      const textRules: Array<[HTMLInputElement | HTMLTextAreaElement, string, boolean]> = [
+        [titleInput, "제목", false],
+        [summaryInput, "한 줄 요약", false],
+        [bodyInput, "상세 내용", true],
+      ];
+      versionInput.setCustomValidity("");
+      if (versionInput.value.trim()) textRules.push([versionInput, "관련 버전", false]);
+      for (const [input, label, allowLineBreaks] of textRules) {
+        const value = input.value.trim();
+        let message = "";
+        if (!value) message = `${label}을 입력해 주세요.`;
+        else if (/[<>]/.test(value)) message = `${label}에는 < 또는 > 문자를 사용할 수 없습니다.`;
+        else if (!allowLineBreaks && /[\r\n]/.test(value)) {
+          message = `${label}은 한 줄로 입력해 주세요.`;
+        }
+        input.setCustomValidity(message);
+        if (message) {
+          input.reportValidity();
+          return;
+        }
+      }
+
+      const linkValue = linkInput.value.trim();
+      if (linkValue && !safeHttpsUrl(linkValue)) {
+        linkInput.setCustomValidity("HTTPS로 시작하는 올바른 주소를 입력해 주세요.");
+        linkInput.reportValidity();
+        return;
+      }
+      linkInput.setCustomValidity("");
+
+      const editableFields = {
+        kind: kindInput.value as UpdateKind,
+        version: versionInput.value.trim() || null,
+        title: titleInput.value.trim(),
+        summary: summaryInput.value.trim(),
+        body: bodyInput.value.trim(),
+        audiences: audienceInputs
+          .filter((input) => input.checked)
+          .map((input) => input.value as UpdateAudience),
+        link_url: linkValue || null,
+      };
+      const itemBeingEdited = currentItems.find((item) => item.id === editingId);
+      const wasEditing = editingId !== null;
+      saveButton && (saveButton.disabled = true);
+      setText(editorMessage, editingId ? "변경 내용을 저장하고 있습니다." : "초안을 저장하고 있습니다.");
+      try {
+        const payload = editingId
+          ? await adminRequest<unknown>("/api/admin/updates", {
+              method: "PATCH",
+              body: JSON.stringify({ id: editingId, changes: editableFields }),
+            })
+          : await adminRequest<unknown>("/api/admin/updates", {
+              method: "POST",
+              body: JSON.stringify({
+                ...editableFields,
+                status: "draft",
+                published_at: null,
+              }),
+            });
+        applyFeed(
+          extractFeed(payload),
+          itemBeingEdited?.status === "published"
+            ? "게시 중인 업데이트 내용을 갱신했습니다."
+            : "업데이트 내용을 저장했습니다.",
+        );
+        resetEditor();
+        setText(editorMessage, wasEditing ? "변경 내용을 저장했습니다." : "초안을 저장했습니다.");
+      } catch (error) {
+        handleAdminError(error, editorMessage);
+      } finally {
+        if (saveButton) saveButton.disabled = false;
+      }
+    });
+
+    cancelEditButton?.addEventListener("click", () => resetEditor(true));
+    newItemButton?.addEventListener("click", () => resetEditor(true));
+    refreshButton?.addEventListener("click", () => void loadUpdates());
+
+    const initializeAdmin = async () => {
+      try {
+        const session = await adminRequest<{ authenticated?: boolean }>("/api/admin/session");
+        if (!session.authenticated) {
+          showLogin();
+          return;
+        }
+        showWorkspace();
+        await loadUpdates();
+      } catch (error) {
+        if (error instanceof AdminApiError && error.status === 401) {
+          showLogin();
+        } else {
+          showLogin("관리자 서비스에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.");
+        }
+      }
+    };
+
+    void initializeAdmin();
+  </script>
+</BaseLayout>
