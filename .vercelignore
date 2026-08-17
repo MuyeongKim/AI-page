@@ -1,0 +1,35 @@
+# Vercel에는 개발용 대용량 파일과 로컬 상태를 업로드하지 않습니다.
+.git/
+.vercel/
+.venv/
+node_modules/
+site/node_modules/
+site/dist/
+site/.astro/
+site/.playwright/
+.playwright-cli/
+.pytest_cache/
+.ruff_cache/
+**/__pycache__/
+*.py[cod]
+.DS_Store
+
+# 모델·탐지 결과·학습 데이터
+*.pt
+*.pth
+*.onnx
+detected_files/
+runs/
+mypackage/runs/
+outputs/
+results/
+data/
+dataset/
+datasets/
+build/
+dist/
+
+# 로컬 비밀값은 제외하고 공개 예시만 유지합니다.
+.env
+.env.*
+!site/.env.example
