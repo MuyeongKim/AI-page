@@ -20,7 +20,12 @@ import sys
 import requests
 from PySide6.QtWidgets import QApplication, QMessageBox
 
-CURRENT_VERSION = "26.04.09"
+if __package__:
+    from .version import CURRENT_VERSION
+else:  # `python mypackage/check_version.py` direct execution compatibility
+    from version import CURRENT_VERSION
+
+
 VERSION_INFO_URL = "https://raw.githubusercontent.com/MuyeongKim/AI-page/refs/heads/main/latest_version.json"
 REQUEST_TIMEOUT = (1.5, 2.5)
 

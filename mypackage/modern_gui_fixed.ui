@@ -17,7 +17,7 @@
    <enum>Qt::ContextMenuPolicy::PreventContextMenu</enum>
   </property>
   <property name="windowTitle">
-   <string>AI 객체탐지 프로그램 V26.04.09 With Stay Up</string>
+   <string>AI 객체탐지 프로그램 With Stay Up</string>
   </property>
   <widget class="QWidget" name="centralwidget">
    <widget class="QLabel" name="label">

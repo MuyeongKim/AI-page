@@ -29,6 +29,7 @@ import os
 import platform
 import shutil
 import sys
+import threading
 import time
 from collections import deque  # 메모리 효율적인 FPS 버퍼용
 from pathlib import Path
@@ -37,7 +38,7 @@ from uuid import uuid4
 import cv2  # OpenCV 추가
 import numpy as np  # Numpy 추가
 import torch
-from PySide6.QtCore import Qt, QThread, Signal, Slot
+from PySide6.QtCore import Qt, QThread, QTimer, Signal, Slot
 from PySide6.QtGui import QImage, QPixmap
 from PySide6.QtWidgets import (
     QApplication,
@@ -68,6 +69,13 @@ DETECTED_OUTPUT_DIR = PROJECT_ROOT / "detected_files"
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".tiff", ".tif"}
 VIDEO_EXTENSIONS = {".mp4", ".mov", ".avi", ".mkv", ".wmv", ".webm"}
 PERSON_AND_VEHICLE_CLASSES = [0, 2, 5, 7]
+PREVIEW_REFRESH_INTERVAL_MS = 50  # 20 FPS; detection and output writing remain unthrottled.
+VIDEO_END_TOLERANCE_MS = 50
+DETECTION_STATUS_COMPLETED = "completed"
+DETECTION_STATUS_PARTIAL = "partial"
+DETECTION_STATUS_FAILED = "failed"
+DETECTION_STATUS_CANCELLED = "cancelled"
+DETECTION_STATUS_DISCONNECTED = "disconnected"
 
 
 def resolve_model_source(model_source):
@@ -317,13 +325,24 @@ class DetectionWorker(QThread):
         self.original_files = []
         self.output_files = []
         self.errors = []
+        self.warnings = []
         self.processed_count = 0
+        self.attempted_count = 0
+        self.succeeded_count = 0
+        self.failed_count = 0
+        self.video_frame_count = 0
+        self.reported_video_frame_count = None
+        self.written_frame_count = 0
+        self._video_output_expected_frames = None
 
     def run(self):
         start_time = time.time()
         detected_files = []
         output_folder = DETECTED_OUTPUT_DIR
         folder_existed = output_folder.exists()
+        folder_status = "결과 폴더를 준비하지 못했습니다."
+        final_status = DETECTION_STATUS_FAILED
+        fatal_error = None
 
         try:
             self.log_signal.emit("🚀 작업 스레드 시작")
@@ -341,20 +360,33 @@ class DetectionWorker(QThread):
 
             if not self.is_running:
                 self.log_signal.emit("모델 로딩 후 취소 요청을 확인했습니다.")
+                final_status = DETECTION_STATUS_CANCELLED
 
             # 소스 유형에 따른 처리
             elif self.source == "사진":
                 self.process_images(output_folder, detected_files)
+                final_status = self.get_image_terminal_status()
             elif is_live_video_source(self.source):
                 video_result = self.process_video(output_folder)
                 if video_result["had_detection"]:
                     detected_files.append(video_result["source"])
+                final_status = video_result["status"]
             else:
                 raise ValueError("입력 소스를 선택해 주세요.")
 
-            # 최종 결과 정리
-            execution_time = time.time() - start_time
-
+        except Exception as e:
+            fatal_error = str(e)
+            if fatal_error not in self.errors:
+                self.errors.append(fatal_error)
+            if not self.is_running:
+                final_status = DETECTION_STATUS_CANCELLED
+            elif self.source == "사진" and self.succeeded_count > 0:
+                final_status = DETECTION_STATUS_PARTIAL
+            else:
+                final_status = DETECTION_STATUS_FAILED
+            if self.is_running:
+                self.error_signal.emit(fatal_error)
+        finally:
             final_result = {
                 "source": self.source,
                 "image_count": self.file_count if self.source == "사진" else 0,
@@ -363,27 +395,41 @@ class DetectionWorker(QThread):
                 "output_files": list(self.output_files),
                 "output_folder": str(output_folder),
                 "folder_status": folder_status,
-                "execution_time": execution_time,
+                "execution_time": time.time() - start_time,
                 "total_people": self.total_people_detected,
                 "total_cars": self.total_cars_detected,
                 "processed_count": self.processed_count,
+                "attempted_count": self.attempted_count,
+                "succeeded_count": self.succeeded_count,
+                "failed_count": self.failed_count,
+                "video_frame_count": self.video_frame_count,
+                "reported_video_frame_count": self.reported_video_frame_count,
+                "written_frame_count": self.written_frame_count,
                 "errors": list(self.errors),
-                "status": "completed" if self.is_running else "cancelled",
+                "warnings": list(self.warnings),
+                "fatal_error": fatal_error,
+                "status": final_status,
                 "count_mode": "max_per_frame" if self.source != "사진" else "sum_per_image",
                 "only_person": self.only_person,
                 "only_car": self.only_car,
                 "classes_to_detect": list(self.classes_to_detect or []),
             }
-
             self.finished_signal.emit(final_result)
 
-        except Exception as e:
-            self.error_signal.emit(str(e))
-        finally:
             # The model belongs to the worker, so release it in the worker lifecycle.
             self.model = None
             gc.collect()
             clear_torch_cache(self.device)
+
+    def get_image_terminal_status(self):
+        """사진 시도 결과로 종료 상태를 계산한다."""
+        if not self.is_running:
+            return DETECTION_STATUS_CANCELLED
+        if self.succeeded_count and self.failed_count:
+            return DETECTION_STATUS_PARTIAL
+        if self.succeeded_count:
+            return DETECTION_STATUS_COMPLETED
+        return DETECTION_STATUS_FAILED
 
     def stop(self):
         """작업 중지 요청"""
@@ -432,34 +478,52 @@ class DetectionWorker(QThread):
                     for file in Path(source).iterdir()
                     if file.is_file() and file.suffix.lower() in IMAGE_EXTENSIONS
                 )
+                if not files_in_folder:
+                    self.record_image_failure(
+                        f"지원하는 사진이 없는 폴더: {source}"
+                    )
                 for file in files_in_folder:
                     if not self.is_running:
                         break
 
-                    self.process_single_file(file, detected_files, output_folder)
-                    self.processed_count += 1
-                    self.progress_signal.emit(
-                        self.processed_count,
-                        f"진행 중... {self.processed_count} / {self.file_count}",
-                    )
-                    if self.processed_count % 10 == 0:
-                        gc.collect()
-                        clear_torch_cache(self.device)
+                    self.process_image_attempt(file, detected_files, output_folder)
 
             elif os.path.isfile(source) and Path(source).suffix.lower() in IMAGE_EXTENSIONS:
-                self.process_single_file(source, detected_files, output_folder)
-                self.processed_count += 1
-                self.progress_signal.emit(
-                    self.processed_count,
-                    f"진행 중... {self.processed_count} / {self.file_count}",
-                )
-                if self.processed_count % 10 == 0:
-                    gc.collect()
-                    clear_torch_cache(self.device)
+                self.process_image_attempt(source, detected_files, output_folder)
             else:
-                error_message = f"지원하지 않거나 존재하지 않는 사진 경로: {source}"
-                self.errors.append(error_message)
-                self.log_signal.emit(error_message)
+                self.record_image_failure(
+                    f"지원하지 않거나 존재하지 않는 사진 경로: {source}"
+                )
+
+    def process_image_attempt(self, source, detected_files, output_folder):
+        """사진 한 건의 시도·성공·실패 수를 기록한다."""
+        self.attempted_count += 1
+        succeeded = self.process_single_file(source, detected_files, output_folder)
+        if succeeded is False:
+            self.failed_count += 1
+        else:
+            self.succeeded_count += 1
+
+        self.processed_count = self.attempted_count
+        self.progress_signal.emit(
+            self.processed_count,
+            f"진행 중... {self.processed_count} / {self.file_count}",
+        )
+        if self.processed_count % 10 == 0:
+            gc.collect()
+            clear_torch_cache(self.device)
+
+    def record_image_failure(self, error_message):
+        """열 수 없는 입력 하나를 실패 시도로 기록한다."""
+        self.attempted_count += 1
+        self.failed_count += 1
+        self.processed_count = self.attempted_count
+        self.errors.append(error_message)
+        self.log_signal.emit(error_message)
+        self.progress_signal.emit(
+            self.processed_count,
+            f"진행 중... {self.processed_count} / {self.file_count}",
+        )
 
     def process_single_file(self, source, detected_files, output_folder):
         """단일 파일 YOLO 처리"""
@@ -477,8 +541,10 @@ class DetectionWorker(QThread):
             source_people = 0
             source_cars = 0
             source_detected = False
+            result_count = 0
 
             for result in results:
+                result_count += 1
                 try:
                     detected_classes = result.names
                     detected_ids = result.boxes.cls if result.boxes is not None else []
@@ -504,13 +570,18 @@ class DetectionWorker(QThread):
                 finally:
                     del result
 
+            if result_count == 0:
+                raise RuntimeError("모델이 사진 처리 결과를 반환하지 않았습니다.")
+
             self.total_people_detected += source_people
             self.total_cars_detected += source_cars
+            return True
 
         except Exception as e:
             error_message = f"파일 처리 오류 ({source}): {e}"
             self.errors.append(error_message)
             self.log_signal.emit(error_message)
+            return False
 
     def process_video(self, output_folder):
         """비디오/캡처보드를 처리하고 최대 동시 탐지 수를 집계한다."""
@@ -522,7 +593,9 @@ class DetectionWorker(QThread):
         had_detection = False
         frame_counter = 0
         written_frame_count = 0
-        processing_completed = False
+        terminal_status = DETECTION_STATUS_FAILED
+        reported_frame_count = None
+        last_frame_position_ms = None
         source_path = None
 
         try:
@@ -556,6 +629,12 @@ class DetectionWorker(QThread):
             frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
             frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
             fps = cap.get(cv2.CAP_PROP_FPS)
+            fps_is_reported = math.isfinite(fps) and fps > 0
+            if should_save_video:
+                raw_frame_count = cap.get(cv2.CAP_PROP_FRAME_COUNT)
+                if math.isfinite(raw_frame_count) and raw_frame_count > 0:
+                    reported_frame_count = int(round(raw_frame_count))
+                    self.reported_video_frame_count = reported_frame_count
 
             if frame_width <= 0 or frame_height <= 0:
                 raise ValueError("영상 해상도를 확인할 수 없습니다.")
@@ -581,6 +660,10 @@ class DetectionWorker(QThread):
                 ret, frame = cap.read()
                 if not ret:
                     break
+
+                frame_position_ms = cap.get(cv2.CAP_PROP_POS_MSEC)
+                if math.isfinite(frame_position_ms) and frame_position_ms >= 0:
+                    last_frame_position_ms = frame_position_ms
 
                 results_list = self.model(
                     frame,
@@ -649,11 +732,61 @@ class DetectionWorker(QThread):
                     gc.collect()
                     clear_torch_cache(self.device)
 
-            if frame_counter == 0 and self.is_running:
+            self.video_frame_count = frame_counter
+            self.written_frame_count = written_frame_count
+
+            if not self.is_running:
+                terminal_status = DETECTION_STATUS_CANCELLED
+            elif self.source == CAPTURE_BOARD_SOURCE:
+                terminal_status = DETECTION_STATUS_DISCONNECTED
+                disconnect_message = (
+                    "캡처보드에서 영상 프레임을 더 이상 읽지 못했습니다. "
+                    "장치 연결 상태를 확인해 주세요."
+                )
+                self.errors.append(disconnect_message)
+                self.log_signal.emit(disconnect_message)
+            elif frame_counter == 0:
                 raise RuntimeError("입력 소스에서 영상 프레임을 읽을 수 없습니다.")
-            processing_completed = True
+            else:
+                frame_count_mismatch = (
+                    reported_frame_count is not None
+                    and frame_counter != reported_frame_count
+                )
+                reached_reported_end = self.video_reached_reported_end(
+                    reported_frame_count,
+                    fps if fps_is_reported else None,
+                    last_frame_position_ms,
+                )
+
+                if frame_count_mismatch and not reached_reported_end:
+                    terminal_status = DETECTION_STATUS_PARTIAL
+                    uncertain_source_warning = (
+                        "컨테이너가 보고한 재생 끝보다 빠르게 영상 프레임 읽기가 "
+                        f"종료되었습니다: 보고 {reported_frame_count}프레임, "
+                        f"실제 처리 {frame_counter}프레임. 손상된 입력일 수도 있지만 "
+                        "오디오 등 다른 트랙이 더 긴 정상 컨테이너일 수도 있어, "
+                        "실제로 읽고 전체 재검증한 결과를 부분 완료로 보존합니다."
+                    )
+                    self.warnings.append(uncertain_source_warning)
+                    self.log_signal.emit(uncertain_source_warning)
+                else:
+                    terminal_status = DETECTION_STATUS_COMPLETED
+
+                if frame_count_mismatch and reached_reported_end:
+                    frame_count_warning = (
+                        "영상 컨테이너가 보고한 프레임 수와 실제 읽은 수가 "
+                        f"다릅니다: 보고 {reported_frame_count}프레임, "
+                        f"실제 처리 {frame_counter}프레임. "
+                        "결과는 실제로 읽은 프레임을 기준으로 검증합니다."
+                    )
+                    self.warnings.append(frame_count_warning)
+                    self.log_signal.emit(frame_count_warning)
 
         finally:
+            # Preserve progress even when model inference, plotting, or writing
+            # raises before the normal loop-exit bookkeeping is reached.
+            self.video_frame_count = frame_counter
+            self.written_frame_count = written_frame_count
             if cap:
                 cap.release()
             if out:
@@ -661,27 +794,47 @@ class DetectionWorker(QThread):
             cv2.destroyAllWindows()
             gc.collect()
             clear_torch_cache(self.device)
-            if partial_video_filename is not None and (
-                not processing_completed or not self.is_running
-            ):
+            if partial_video_filename is not None and terminal_status not in {
+                DETECTION_STATUS_COMPLETED,
+                DETECTION_STATUS_PARTIAL,
+            }:
                 partial_video_filename.unlink(missing_ok=True)
 
         committed_output = None
-        if should_save_video and self.is_running:
-            if written_frame_count != frame_counter or not self.validate_video_output(
-                partial_video_filename
-            ):
+        if should_save_video and terminal_status in {
+            DETECTION_STATUS_COMPLETED,
+            DETECTION_STATUS_PARTIAL,
+        }:
+            self._video_output_expected_frames = written_frame_count
+            try:
+                output_is_valid = self.validate_video_output(partial_video_filename)
+            except Exception:
+                if partial_video_filename is not None:
+                    partial_video_filename.unlink(missing_ok=True)
+                raise
+            finally:
+                self._video_output_expected_frames = None
+
+            if not self.is_running:
+                terminal_status = DETECTION_STATUS_CANCELLED
+                if partial_video_filename is not None:
+                    partial_video_filename.unlink(missing_ok=True)
+            elif written_frame_count != frame_counter or not output_is_valid:
                 if partial_video_filename is not None:
                     partial_video_filename.unlink(missing_ok=True)
                 raise RuntimeError("탐지 결과 영상이 정상적으로 저장되지 않았습니다.")
 
-            try:
-                os.replace(partial_video_filename, output_video_filename)
-            except Exception:
-                partial_video_filename.unlink(missing_ok=True)
-                raise
-            committed_output = output_video_filename
-            self.output_files.append(str(committed_output.resolve()))
+            if terminal_status in {
+                DETECTION_STATUS_COMPLETED,
+                DETECTION_STATUS_PARTIAL,
+            }:
+                try:
+                    os.replace(partial_video_filename, output_video_filename)
+                except Exception:
+                    partial_video_filename.unlink(missing_ok=True)
+                    raise
+                committed_output = output_video_filename
+                self.output_files.append(str(committed_output.resolve()))
 
         return {
             "source": source_path,
@@ -689,10 +842,31 @@ class DetectionWorker(QThread):
             "output_file": str(committed_output) if committed_output else None,
             "frame_count": frame_counter,
             "written_frame_count": written_frame_count,
+            "reported_frame_count": reported_frame_count,
+            "status": terminal_status,
         }
 
+    @staticmethod
+    def video_reached_reported_end(reported_frames, fps, last_position_ms):
+        """VFR frame-count mismatch가 실제 조기 종료인지 재생 시각으로 구분한다."""
+        if (
+            reported_frames is None
+            or reported_frames <= 0
+            or fps is None
+            or not math.isfinite(fps)
+            or fps <= 0
+            or last_position_ms is None
+            or not math.isfinite(last_position_ms)
+            or last_position_ms < 0
+        ):
+            return False
+
+        reported_duration_ms = reported_frames * 1000.0 / fps
+        tolerance_ms = max(VIDEO_END_TOLERANCE_MS, 1.5 * 1000.0 / fps)
+        return last_position_ms + tolerance_ms >= reported_duration_ms
+
     def validate_video_output(self, output_path):
-        """Return True only for a non-empty video with at least one readable frame."""
+        """저장된 영상의 모든 프레임을 다시 읽어 불완전 출력을 거부한다."""
         if output_path is None or not output_path.is_file() or output_path.stat().st_size <= 0:
             return False
 
@@ -700,8 +874,22 @@ class DetectionWorker(QThread):
         try:
             if not verification_capture.isOpened():
                 return False
-            ret, frame = verification_capture.read()
-            return bool(ret and frame is not None and frame.size > 0)
+
+            decoded_frame_count = 0
+            while True:
+                if not self.is_running:
+                    return False
+                ret, frame = verification_capture.read()
+                if not ret:
+                    break
+                if frame is None or frame.size <= 0:
+                    return False
+                decoded_frame_count += 1
+
+            expected_frames = self._video_output_expected_frames
+            if decoded_frame_count <= 0:
+                return False
+            return expected_frames is None or decoded_frame_count == expected_frames
         finally:
             verification_capture.release()
 
@@ -783,6 +971,13 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
         self._close_after_worker = False
         self._closing_without_confirmation = False
         self._cleanup_done = False
+        self._cancel_requested = False
+        self._preview_frame_lock = threading.Lock()
+        self._pending_preview_frame = None
+        self._preview_accepting_frames = False
+        self._preview_timer = QTimer(self)
+        self._preview_timer.setInterval(PREVIEW_REFRESH_INTERVAL_MS)
+        self._preview_timer.timeout.connect(self._display_pending_preview_frame)
 
         # 버튼 및 UI 요소 연결
         self.pushButton_close.clicked.connect(self.exit_application)
@@ -980,7 +1175,10 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
             self._close_requested = True
         if self.worker is not None and self.worker.isRunning():
             self._close_after_worker = True
-            self.worker.stop()
+            if not self._cancel_requested:
+                self._cancel_requested = True
+                self.worker.stop()
+            self._stop_preview_updates()
             if self.progress_dialog is not None:
                 self.progress_dialog.mark_cancelling(
                     "종료 요청됨 — 현재 처리를 마친 뒤 안전하게 종료합니다…"
@@ -1029,6 +1227,7 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
     @Slot()
     def on_worker_thread_finished(self):
         """Finalize UI only after QThread.finished confirms native thread exit."""
+        self._stop_preview_updates()
         worker = self.sender()
         if worker is self.worker:
             self.worker = None
@@ -1049,13 +1248,16 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
         self._pending_detection_error = None
         self._pending_detection_result = None
 
-        if pending_error:
+        if pending_result is not None:
+            self.present_detection_result(pending_result)
+        elif pending_error:
+            # DetectionWorker normally emits a structured result even for fatal
+            # failures. Keep this branch for alternate/test workers that only
+            # provide the legacy error signal.
             self.set_main_status("탐지 중 오류가 발생했습니다")
             QMessageBox.critical(
                 self, "작업 오류", f"작업 중 오류가 발생했습니다:\n{pending_error}"
             )
-        elif pending_result is not None:
-            self.present_detection_result(pending_result)
 
     def close_progress_dialog(self):
         if self.progress_dialog is not None:
@@ -1067,6 +1269,34 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
         """미리보기 영역을 기본 상태로 되돌린다."""
         if self.preview_window is not None:
             self.preview_window.reset_preview(status_text)
+
+    def _start_preview_updates(self):
+        """Accept worker frames into a one-frame mailbox and refresh at 20 FPS."""
+        with self._preview_frame_lock:
+            self._pending_preview_frame = None
+            self._preview_accepting_frames = True
+        self._preview_timer.start()
+
+    def _stop_preview_updates(self):
+        """Stop presentation and release any frame still held by the mailbox."""
+        self._preview_timer.stop()
+        with self._preview_frame_lock:
+            self._preview_accepting_frames = False
+            self._pending_preview_frame = None
+
+    @Slot()
+    def _display_pending_preview_frame(self):
+        """Present only the most recent frame received since the last timer tick."""
+        with self._preview_frame_lock:
+            image = self._pending_preview_frame
+            self._pending_preview_frame = None
+
+        if image is None or image.isNull():
+            return
+
+        if self.preview_window is not None and self.preview_window.isVisible():
+            self.preview_window.set_status("실시간 탐지 프레임을 표시하는 중입니다.")
+            self.preview_window.set_preview_pixmap(QPixmap.fromImage(image))
 
     def ensure_preview_window(self):
         """별도 미리보기 창을 준비한다."""
@@ -1082,31 +1312,40 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
         preview_window.show()
         preview_window.raise_()
         preview_window.activateWindow()
+        self._start_preview_updates()
 
     def close_preview_window(self):
         """별도 미리보기 창을 닫는다."""
+        self._stop_preview_updates()
         if self.preview_window is not None and self.preview_window.isVisible():
             self.preview_window.close_preview_window()
 
     @Slot(object)
     def update_preview_frame(self, image):
-        """워커 스레드에서 전달한 프레임을 GUI에 표시한다."""
+        """Keep only the latest worker frame without touching GUI objects."""
         if image is None or image.isNull():
             return
 
-        if self.preview_window is not None:
-            self.preview_window.set_status("실시간 탐지 프레임을 표시하는 중입니다.")
-            self.preview_window.set_preview_pixmap(QPixmap.fromImage(image))
+        with self._preview_frame_lock:
+            if self._preview_accepting_frames:
+                self._pending_preview_frame = image
 
     @Slot()
     def handle_preview_window_closed(self):
         """미리보기 창을 닫으면 실시간 탐지도 함께 중지한다."""
+        self._stop_preview_updates()
         self.cancel_detection()
 
     @Slot()
     def cancel_detection(self):
         """Request cooperative cancellation without reporting immediate completion."""
-        if self.worker is not None and self.worker.isRunning():
+        if (
+            not self._cancel_requested
+            and self.worker is not None
+            and self.worker.isRunning()
+        ):
+            self._cancel_requested = True
+            self._stop_preview_updates()
             self.worker.stop()
             if self.progress_dialog is not None:
                 self.progress_dialog.mark_cancelling()
@@ -1419,12 +1658,16 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
         # 워커 스레드 생성 및 연결
         self._pending_detection_result = None
         self._pending_detection_error = None
+        self._cancel_requested = False
         self.worker = DetectionWorker(params)
         self.worker.progress_signal.connect(self.update_progress)
         self.worker.error_signal.connect(self.handle_error)
         self.worker.finished_signal.connect(self.on_detection_finished)
         self.worker.log_signal.connect(self.log_message)
-        self.worker.frame_signal.connect(self.update_preview_frame)
+        self.worker.frame_signal.connect(
+            self.update_preview_frame,
+            Qt.ConnectionType.DirectConnection,
+        )
         self.worker.finished.connect(self.on_worker_thread_finished)
 
         # 진행률 다이얼로그 설정
@@ -1446,6 +1689,7 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
             self.worker.start()
         except Exception as exc:
             self.close_progress_dialog()
+            self.close_preview_window()
             self.set_processing_state(False)
             self.worker.deleteLater()
             self.worker = None
@@ -1481,18 +1725,37 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
     def on_detection_finished(self, result):
         """Store the terminal result until the underlying QThread exits."""
         self._pending_detection_result = result
+        status = result.get("status", DETECTION_STATUS_COMPLETED)
         if is_live_video_source(result["source"]):
             if self.preview_window is not None:
-                self.preview_window.set_status("실시간 탐지가 종료되었습니다.")
+                preview_messages = {
+                    DETECTION_STATUS_COMPLETED: "실시간 탐지가 정상 종료되었습니다.",
+                    DETECTION_STATUS_CANCELLED: "실시간 탐지가 취소되었습니다.",
+                    DETECTION_STATUS_DISCONNECTED: "외부 영상 입력 연결이 끊겼습니다.",
+                    DETECTION_STATUS_PARTIAL: "실시간 탐지가 부분 완료되었습니다.",
+                    DETECTION_STATUS_FAILED: "실시간 탐지가 실패했습니다.",
+                }
+                self.preview_window.set_status(
+                    preview_messages.get(status, "실시간 탐지가 종료되었습니다.")
+                )
         if self.progress_dialog is not None:
-            if result.get("status") == "cancelled":
+            if status == DETECTION_STATUS_CANCELLED:
                 self.progress_dialog.mark_cancelling()
             else:
-                self.progress_dialog.set_terminal_text("탐지 완료 — 작업 스레드를 정리하는 중…")
+                terminal_messages = {
+                    DETECTION_STATUS_COMPLETED: "탐지 완료 — 작업 스레드를 정리하는 중…",
+                    DETECTION_STATUS_PARTIAL: "일부 항목 처리 완료 — 작업 스레드를 정리하는 중…",
+                    DETECTION_STATUS_FAILED: "탐지 실패 — 작업 스레드를 정리하는 중…",
+                    DETECTION_STATUS_DISCONNECTED: "외부 영상 연결 끊김 — 작업 스레드를 정리하는 중…",
+                }
+                self.progress_dialog.set_terminal_text(
+                    terminal_messages.get(status, "탐지 종료 — 작업 스레드를 정리하는 중…")
+                )
 
     def present_detection_result(self, result):
         """Present a result after native thread completion and resource release."""
-        if result.get("status") == "cancelled":
+        status = result.get("status", DETECTION_STATUS_COMPLETED)
+        if status == DETECTION_STATUS_CANCELLED:
             self.set_main_status("탐지 작업이 취소되었습니다")
             QMessageBox.information(
                 self,
@@ -1505,11 +1768,21 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
             )
             return
 
-        self.set_main_status("탐지 작업이 완료되었습니다")
+        status_messages = {
+            DETECTION_STATUS_COMPLETED: "탐지 작업이 완료되었습니다",
+            DETECTION_STATUS_PARTIAL: "탐지 작업이 부분 완료되었습니다",
+            DETECTION_STATUS_FAILED: "탐지 작업이 실패했습니다",
+            DETECTION_STATUS_DISCONNECTED: "외부 영상 입력 연결이 끊겼습니다",
+        }
+        self.set_main_status(status_messages.get(status, "탐지 작업이 종료되었습니다"))
         self.display_results_new(result)
 
         original_files = result.get("original_files", [])
-        if result["source"] == "사진" and original_files:
+        if (
+            status in {DETECTION_STATUS_COMPLETED, DETECTION_STATUS_PARTIAL}
+            and result["source"] == "사진"
+            and original_files
+        ):
             reply = QMessageBox.question(
                 self,
                 "GPS 정보 분석",
@@ -1527,11 +1800,12 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
                     output_directory=result.get("output_folder"),
                 )
 
-        self.memory_monitor.log_memory_usage("작업 완료")
+        self.memory_monitor.log_memory_usage(f"작업 종료({status})")
 
     def display_results_new(self, result):
-        """Show a source-aware summary for a completed detection run."""
+        """Show a source-aware summary for a terminal detection result."""
         source = result["source"]
+        status = result.get("status", DETECTION_STATUS_COMPLETED)
         image_count = result["image_count"]
         detected_files = result["detected_files"]
         folder_status = result["folder_status"]
@@ -1540,14 +1814,27 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
         total_cars = result["total_cars"]
         output_files = result.get("output_files", [])
         errors = result.get("errors", [])
+        warnings = result.get("warnings", [])
         only_person = result.get("only_person", False)
         only_car = result.get("only_car", False)
 
         if is_live_video_source(source):
+            status_label = {
+                DETECTION_STATUS_COMPLETED: "정상 완료",
+                DETECTION_STATUS_PARTIAL: "부분 완료",
+                DETECTION_STATUS_FAILED: "실패",
+                DETECTION_STATUS_DISCONNECTED: "입력 연결 끊김",
+            }.get(status, "종료")
+            frame_count = result.get("video_frame_count", result.get("processed_count", 0))
+            reported_frames = result.get("reported_video_frame_count")
             message = (
                 f"{folder_status}\n\n"
-                f"영상 탐지가 종료되었고, 실행 시간은 {execution_time:.2f}초입니다."
+                f"영상 탐지 상태: {status_label}\n"
+                f"처리 프레임: {frame_count}개"
             )
+            if reported_frames is not None:
+                message += f" / 컨테이너 보고 {reported_frames}개"
+            message += f"\n실행 시간: {execution_time:.2f}초"
             if only_person and not only_car:
                 message += f"\n\n최대 동시 사람 탐지 수: {total_people}명"
             elif only_car and not only_person:
@@ -1558,10 +1845,17 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
             if output_files:
                 message += f"\n결과 영상: {output_files[0]}"
         else:
+            attempted_count = result.get("attempted_count", result.get("processed_count", 0))
+            succeeded_count = result.get("succeeded_count", attempted_count)
+            failed_count = result.get("failed_count", len(errors))
             message = (
                 f"{folder_status}\n\n"
-                f"총 사진 {image_count}장 중 {len(detected_files)}장에서 객체가 탐지되었고, "
-                f"실행 시간은 {execution_time:.2f}초입니다."
+                f"선택 사진: {image_count}장\n"
+                f"처리 시도: {attempted_count}장\n"
+                f"처리 성공: {succeeded_count}장\n"
+                f"처리 실패: {failed_count}장\n"
+                f"객체 탐지: {len(detected_files)}장\n"
+                f"실행 시간: {execution_time:.2f}초"
             )
 
             if detected_files:
@@ -1575,13 +1869,34 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
                     )
 
                 message += f"\n탐지 결과 폴더: {result.get('output_folder', DETECTED_OUTPUT_DIR)}"
+            elif succeeded_count == 0:
+                message += "\n\n성공적으로 분석된 사진이 없습니다."
             else:
-                message += "\n\n탐지된 사람 또는 차량이 없습니다."
+                message += "\n\n성공 처리된 사진에서는 탐지된 사람 또는 차량이 없습니다."
 
         if errors:
             message += f"\n\n처리하지 못한 항목: {len(errors)}개"
+            for error in errors[:3]:
+                message += f"\n- {error}"
+            if len(errors) > 3:
+                message += f"\n- 외 {len(errors) - 3}개"
 
-        QMessageBox.information(self, "AI 객체 탐지 완료", message)
+        if warnings:
+            message += f"\n\n주의 사항: {len(warnings)}개"
+            for warning in warnings[:3]:
+                message += f"\n- {warning}"
+
+        if status == DETECTION_STATUS_FAILED:
+            QMessageBox.critical(self, "AI 객체 탐지 실패", message)
+        elif status in {DETECTION_STATUS_PARTIAL, DETECTION_STATUS_DISCONNECTED}:
+            title = (
+                "AI 객체 탐지 부분 완료"
+                if status == DETECTION_STATUS_PARTIAL
+                else "외부 영상 입력 연결 끊김"
+            )
+            QMessageBox.warning(self, title, message)
+        else:
+            QMessageBox.information(self, "AI 객체 탐지 완료", message)
 
 
 if __name__ == "__main__":

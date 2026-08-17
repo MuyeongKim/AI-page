@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 ################################################################################
-## Modern AI Object Detection GUI - Refined Layout (26.04.09)
+## Modern AI Object Detection GUI - Refined Layout
 ## Created by: AI Assistant for Stay Up AI Program
 ################################################################################
 
@@ -29,6 +29,11 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+if __package__:
+    from .version import CURRENT_RELEASE, format_gui_changelog
+else:  # `python mypackage/modern_gui_fixed.py` direct execution compatibility
+    from version import CURRENT_RELEASE, format_gui_changelog
+
 
 class ModernUi_MainWindow(object):
     def setupUi(self, MainWindow):
@@ -37,7 +42,7 @@ class ModernUi_MainWindow(object):
 
         MainWindow.resize(760, 760)
         MainWindow.setMinimumSize(QSize(560, 560))
-        MainWindow.setWindowTitle("AI 객체 탐지 프로그램 V26.04.09 With Stay Up")
+        MainWindow.setWindowTitle(CURRENT_RELEASE.window_title)
 
         self.centralwidget = QWidget(MainWindow)
         self.centralwidget.setObjectName("centralwidget")
@@ -326,10 +331,7 @@ class ModernUi_MainWindow(object):
         )
 
         self.plainTextEdit.setPlainText(
-            "버전 V26.04.09\n"
-            "- Yolo V26 모델 선택 항목 추가\n"
-            "- 모던 GUI 스타일 정리 및 사용자 문구 개선\n"
-            "- 결과 표시 흐름과 실행 진입점 보완\n\n"
+            f"{format_gui_changelog()}\n\n"
             "[참고]\n"
             "- 실행 중 중단은 진행 창의 취소 버튼 또는 미리보기 창 닫기로 처리할 수 있습니다.\n"
             "- CUDA 사용 가능 여부에 따라 GPU 또는 CPU가 자동 적용됩니다.\n\n"
