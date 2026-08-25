@@ -18,7 +18,10 @@
 import os
 import sys
 
-from PySide6.QtWidgets import QApplication, QInputDialog, QLineEdit, QMessageBox
+from PySide6.QtWidgets import QApplication, QDialog, QInputDialog, QLineEdit, QMessageBox
+
+from mypackage.device import get_preferred_device, get_startup_device_message
+from mypackage.version import CURRENT_RELEASE
 
 # 유효기간 및 인증 키 설정
 VALID_KEY = os.environ.get("STAYUP_AI_KEY") or "stayup"
@@ -100,6 +103,27 @@ def apply_modern_style():
         """
         app.setStyleSheet(style)
 
+
+def _prompt_for_key(title, label):
+    """Prompt for an authentication key without the unstable static Qt overload."""
+    dialog = QInputDialog()
+    dialog.setWindowTitle(title)
+    dialog.setLabelText(label)
+    dialog.setTextEchoMode(QLineEdit.EchoMode.Password)
+    accepted = dialog.exec() == QDialog.DialogCode.Accepted
+    return dialog.textValue(), accepted
+
+
+def build_authentication_success_message(device):
+    """인증 성공, 앱 버전, 자동 장치 설정 결과를 하나의 안내로 만든다."""
+    return "\n".join(
+        (
+            "인증 성공!",
+            f"Stay Up AI {CURRENT_RELEASE.display_version}를 실행합니다.",
+            get_startup_device_message(device),
+        )
+    )
+
 def authenticate_basic():
     """기본 인증 시스템 (호환성용)"""
     print("🚀 Stay Up AI - 프로그램을 시작합니다...")
@@ -107,19 +131,18 @@ def authenticate_basic():
     
     attempts = 0
     while attempts < MAX_ATTEMPTS:
-        user_key, ok = QInputDialog.getText(
-            None, 
-            "Stay Up AI - 인증", 
+        user_key, ok = _prompt_for_key(
+            "Stay Up AI - 인증",
             "AI 객체탐지 프로그램 실행을 위한 인증 키를 입력하세요:",
-            QLineEdit.EchoMode.Password,
         )
         
         if ok and user_key:
             if user_key == VALID_KEY:
+                selected_device = get_preferred_device()
                 QMessageBox.information(
                     None,
                     "인증 성공",
-                    "인증 성공!\nAI 객체탐지 프로그램을 실행합니다.",
+                    build_authentication_success_message(selected_device),
                 )
                 return True
             else:
@@ -158,15 +181,14 @@ def authenticate():
     attempts = 0
     while attempts < MAX_ATTEMPTS:
         # 모던한 입력 다이얼로그
-        user_key, ok = QInputDialog.getText(
-            None, 
-            "🔐 Stay Up AI - 인증", 
+        user_key, ok = _prompt_for_key(
+            "🔐 Stay Up AI - 인증",
             "✨ AI 객체탐지 프로그램 실행을 위한 인증 키를 입력하세요:\n\n🔑 인증 키:",
-            QLineEdit.EchoMode.Password,
         )
         
         if ok and user_key:
             if user_key == VALID_KEY:
+                selected_device = get_preferred_device()
                 # 성공 메시지
                 msg = QMessageBox()
                 msg.setIcon(QMessageBox.Icon.Information)
@@ -174,9 +196,9 @@ def authenticate():
                 msg.setText(
                     "<div style='text-align: center; padding: 10px;'>"
                     "<h3 style='color: #28a745; margin: 10px 0;'>🎉 인증 성공!</h3>"
-                    "<p style='color: #495057; font-size: 13px;'>"
-                    "Stay Up AI 객체탐지 프로그램을 실행합니다.<br>"
-                    "모던한 새 디자인을 경험해보세요!"
+                    f"<p style='color: #495057; font-size: 13px;'>"
+                    f"Stay Up AI {CURRENT_RELEASE.display_version}를 실행합니다.<br>"
+                    f"{get_startup_device_message(selected_device)}"
                     "</p>"
                     "</div>"
                 )

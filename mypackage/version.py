@@ -35,9 +35,19 @@ class ReleaseInfo:
 
 
 CURRENT_RELEASE = ReleaseInfo(
-    version="26.08.17",
-    release_date="2026-08-17",
+    version="26.08.25",
+    release_date="2026-08-25",
     changelog=(
+        ChangelogSection(
+            date="2026.08.25",
+            title="V26.08.25 시작 환경 자동 설정",
+            items=(
+                "인증 성공 안내에 앱 버전과 자동 감지된 추론 장치를 함께 표시",
+                "CUDA·Apple MPS·CPU 순서로 사용 가능한 장치를 판정해 GUI 선택값에 반영",
+                "탐지 완료 후 결과 폴더를 GUI에서 바로 열 수 있는 버튼 추가",
+                "인증 키 입력 다이얼로그의 PySide6 호환성과 비밀번호 입력 표시 안정화",
+            ),
+        ),
         ChangelogSection(
             date="2026.08.17",
             title="V26.08.17 운영 안전성 개선",

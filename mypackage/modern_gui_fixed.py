@@ -167,6 +167,10 @@ class ModernUi_MainWindow(object):
         self.radioButton_person.setObjectName("radioButton_person")
         self.radioButton_car = QRadioButton("차량만")
         self.radioButton_car.setObjectName("radioButton_car")
+        self.pushButton_open_output_folder = QPushButton("탐지 폴더 열기")
+        self.pushButton_open_output_folder.setObjectName("pushButton_open_output_folder")
+        self.pushButton_open_output_folder.setMinimumWidth(126)
+        self.pushButton_open_output_folder.setEnabled(False)
         self.detection_target_group = QButtonGroup()
         self.detection_target_group.setExclusive(True)
         self.detection_target_group.addButton(self.radioButton_all)
@@ -280,14 +284,26 @@ class ModernUi_MainWindow(object):
 
         settings_layout.addWidget(self.label_8, 4, 1)
 
-        detect_row = QHBoxLayout()
-        detect_row.setSpacing(8)
-        detect_row.addWidget(self.radioButton_all)
-        detect_row.addWidget(self.radioButton_person)
-        detect_row.addWidget(self.radioButton_car)
-        detect_row.addStretch(1)
+        detect_layout = QVBoxLayout()
+        detect_layout.setContentsMargins(0, 0, 0, 0)
+        detect_layout.setSpacing(6)
+
+        detect_scope_row = QHBoxLayout()
+        detect_scope_row.setSpacing(8)
+        detect_scope_row.addWidget(self.radioButton_all)
+        detect_scope_row.addWidget(self.radioButton_person)
+        detect_scope_row.addStretch(1)
+        detect_layout.addLayout(detect_scope_row)
+
+        detect_folder_row = QHBoxLayout()
+        detect_folder_row.setSpacing(8)
+        detect_folder_row.addWidget(self.radioButton_car)
+        detect_folder_row.addWidget(self.pushButton_open_output_folder)
+        detect_folder_row.addStretch(1)
+        detect_layout.addLayout(detect_folder_row)
+
         settings_layout.addWidget(self.label_10, 5, 0)
-        settings_layout.addLayout(detect_row, 5, 1)
+        settings_layout.addLayout(detect_layout, 5, 1)
 
         self.main_layout.addWidget(self.settings_card)
 
@@ -436,6 +452,12 @@ class ModernUi_MainWindow(object):
                 "차량만 탐지합니다.",
             ),
             (
+                self.pushButton_open_output_folder,
+                "탐지 폴더 열기",
+                "마지막으로 완료된 객체 탐지의 결과 폴더를 엽니다.",
+                "탐지가 끝나면 결과 폴더를 열 수 있습니다.",
+            ),
+            (
                 self.pushButton_enter,
                 "탐지 시작",
                 "선택한 설정으로 객체 탐지를 시작합니다.",
@@ -564,7 +586,8 @@ class ModernUi_MainWindow(object):
             border: none;
         }
 
-        QPushButton#pushButton_search, QPushButton#pushButton_search_2 {
+        QPushButton#pushButton_search, QPushButton#pushButton_search_2,
+        QPushButton#pushButton_open_output_folder {
             min-height: 42px;
             padding: 0 16px;
             border: 1px solid #d9cbb8;
@@ -575,7 +598,8 @@ class ModernUi_MainWindow(object):
             font-weight: 700;
         }
 
-        QPushButton#pushButton_search:hover, QPushButton#pushButton_search_2:hover {
+        QPushButton#pushButton_search:hover, QPushButton#pushButton_search_2:hover,
+        QPushButton#pushButton_open_output_folder:hover {
             background: #e5d6c3;
             border-color: #cdb89d;
         }
@@ -613,11 +637,13 @@ class ModernUi_MainWindow(object):
             border-color: #0f766e;
         }
 
-        QPushButton#pushButton_search:focus, QPushButton#pushButton_search_2:focus {
+        QPushButton#pushButton_search:focus, QPushButton#pushButton_search_2:focus,
+        QPushButton#pushButton_open_output_folder:focus {
             border: 2px solid #0f766e;
         }
 
-        QPushButton#pushButton_search:disabled, QPushButton#pushButton_search_2:disabled {
+        QPushButton#pushButton_search:disabled, QPushButton#pushButton_search_2:disabled,
+        QPushButton#pushButton_open_output_folder:disabled {
             background: #e5e7eb;
             color: #6b7280;
             border-color: #cbd5e1;

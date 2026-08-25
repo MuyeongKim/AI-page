@@ -38,8 +38,8 @@ from uuid import uuid4
 import cv2  # OpenCV 추가
 import numpy as np  # Numpy 추가
 import torch
-from PySide6.QtCore import QSettings, Qt, QThread, QTimer, Signal, Slot
-from PySide6.QtGui import QImage, QPixmap
+from PySide6.QtCore import QSettings, Qt, QThread, QTimer, QUrl, Signal, Slot
+from PySide6.QtGui import QDesktopServices, QImage, QPixmap
 from PySide6.QtWidgets import (
     QApplication,
     QDialog,
@@ -55,6 +55,7 @@ from PySide6.QtWidgets import (
 from ultralytics import YOLO
 
 from mypackage import gps2, start
+from mypackage.device import get_preferred_device, is_mps_available
 from mypackage.modern_gui_fixed import ModernUi_MainWindow
 from mypackage.notices import NOTICE_SOURCE_CACHE, NoticeLoadResult, OnlineNoticeLoader
 from mypackage.video_source import (
@@ -77,6 +78,9 @@ DETECTION_STATUS_PARTIAL = "partial"
 DETECTION_STATUS_FAILED = "failed"
 DETECTION_STATUS_CANCELLED = "cancelled"
 DETECTION_STATUS_DISCONNECTED = "disconnected"
+RESULT_FOLDER_STATUSES = frozenset(
+    {DETECTION_STATUS_COMPLETED, DETECTION_STATUS_PARTIAL}
+)
 NOTICE_SETTINGS_ORGANIZATION = "StayUpAI"
 NOTICE_SETTINGS_APPLICATION = "AIObjectDetection"
 NOTICE_SETTINGS_REVISION_KEY = "online_news/last_seen_revision"
@@ -128,24 +132,6 @@ except ImportError:
 
         def get_summary(self):
             return "모니터링 비활성화"
-
-
-def is_mps_available():
-    """PyTorch MPS 백엔드 사용 가능 여부."""
-    return bool(
-        hasattr(torch, "backends")
-        and hasattr(torch.backends, "mps")
-        and torch.backends.mps.is_available()
-    )
-
-
-def get_preferred_device():
-    """사용 가능한 가속 장치를 우선순위대로 선택."""
-    if torch.cuda.is_available():
-        return "cuda"
-    if is_mps_available():
-        return "mps"
-    return "cpu"
 
 
 def clear_torch_cache(device=None):
@@ -977,6 +963,7 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
         self.progress_dialog = None
         self._pending_detection_result = None
         self._pending_detection_error = None
+        self._detection_output_folder = None
         self._processing = False
         self._close_requested = False
         self._close_after_worker = False
@@ -1002,6 +989,7 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
         self.pushButton_search.clicked.connect(self.browse_files)
         self.pushButton_search_2.clicked.connect(self.browse_folders)
         self.pushButton_enter.clicked.connect(self.submit)
+        self.pushButton_open_output_folder.clicked.connect(self.open_detection_folder)
         self.comboBox_data.currentIndexChanged.connect(self.update_datasize)
         self.comboBox_source.currentIndexChanged.connect(self.update_source)
         self.comboBox_percentage.currentIndexChanged.connect(self.option_percentage)
@@ -1061,12 +1049,7 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
             if index >= 0:
                 combo.setCurrentIndex(index)
 
-        automatic_index = self.comboBox_device.findText("자동")
-        if automatic_index >= 0:
-            self.comboBox_device.setCurrentIndex(automatic_index)
-            self.device = get_preferred_device()
-            return
-
+        self.device = get_preferred_device()
         preferred_label = {"cuda": "GPU", "mps": "MPS", "cpu": "CPU"}.get(
             self.device, "CPU"
         )
@@ -1074,7 +1057,11 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
         if preferred_index < 0:
             preferred_index = self.comboBox_device.findText("CPU")
         if preferred_index >= 0:
-            self.comboBox_device.setCurrentIndex(preferred_index)
+            previously_blocked = self.comboBox_device.blockSignals(True)
+            try:
+                self.comboBox_device.setCurrentIndex(preferred_index)
+            finally:
+                self.comboBox_device.blockSignals(previously_blocked)
 
     def set_main_status(self, message):
         if hasattr(self, "status_label"):
@@ -1234,14 +1221,51 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
         self.pushButton_enter.setEnabled(
             not self._processing and bool(self.datasize) and self.input_is_ready()
         )
+        self.pushButton_open_output_folder.setEnabled(
+            not self._processing and self._detection_output_folder_is_ready()
+        )
 
     def set_processing_state(self, active):
+        if active:
+            self._detection_output_folder = None
         self._processing = active
         self.update_action_states()
         if active:
             self.set_main_status(f"탐지 실행 중 · {self.device.upper()}")
         else:
             self.set_main_status(f"준비됨 · 현재 장치: {self.device.upper()}")
+
+    def _detection_output_folder_is_ready(self):
+        try:
+            return (
+                self._detection_output_folder is not None
+                and self._detection_output_folder.is_dir()
+            )
+        except OSError:
+            return False
+
+    def _set_detection_output_folder(self, folder):
+        self._detection_output_folder = Path(folder).expanduser() if folder else None
+        self.update_action_states()
+
+    @Slot()
+    def open_detection_folder(self):
+        if not self._detection_output_folder_is_ready():
+            self._set_detection_output_folder(None)
+            QMessageBox.warning(
+                self,
+                "탐지 폴더 열기",
+                "탐지 결과 폴더가 존재하지 않습니다. 다시 탐지를 실행해 주세요.",
+            )
+            return
+
+        folder_url = QUrl.fromLocalFile(str(self._detection_output_folder.resolve()))
+        if not QDesktopServices.openUrl(folder_url):
+            QMessageBox.warning(
+                self,
+                "탐지 폴더 열기",
+                "운영체제에서 탐지 결과 폴더를 열지 못했습니다.",
+            )
 
     def exit_application(self):
         self.close()
@@ -1812,6 +1836,10 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
         """Store the terminal result until the underlying QThread exits."""
         self._pending_detection_result = result
         status = result.get("status", DETECTION_STATUS_COMPLETED)
+        output_folder = (
+            result.get("output_folder") if status in RESULT_FOLDER_STATUSES else None
+        )
+        self._set_detection_output_folder(output_folder)
         if is_live_video_source(result["source"]):
             if self.preview_window is not None:
                 preview_messages = {

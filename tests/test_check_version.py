@@ -5,7 +5,7 @@ import types
 
 
 def test_get_latest_version_skips_http_request_when_offline(monkeypatch):
-    check_version = load_check_version_with_qt_stubs()
+    check_version = load_check_version_with_qt_stubs(monkeypatch)
     request_calls = []
 
     def fake_get(*args, **kwargs):
@@ -22,7 +22,7 @@ def test_get_latest_version_skips_http_request_when_offline(monkeypatch):
 
 
 def test_get_latest_version_requests_server_when_network_is_available(monkeypatch):
-    check_version = load_check_version_with_qt_stubs()
+    check_version = load_check_version_with_qt_stubs(monkeypatch)
     request_calls = []
 
     class DummyResponse:
@@ -57,7 +57,7 @@ def test_get_latest_version_requests_server_when_network_is_available(monkeypatc
     assert len(request_calls) == 1
 
 
-def load_check_version_with_qt_stubs():
+def load_check_version_with_qt_stubs(monkeypatch):
     project_root = pathlib.Path(__file__).resolve().parents[1]
     if str(project_root) not in sys.path:
         sys.path.insert(0, str(project_root))
@@ -110,7 +110,7 @@ def load_check_version_with_qt_stubs():
     pyside6 = types.ModuleType("PySide6")
     pyside6.QtWidgets = qtwidgets
 
-    sys.modules["PySide6"] = pyside6
-    sys.modules["PySide6.QtWidgets"] = qtwidgets
-    sys.modules.pop("mypackage.check_version", None)
+    monkeypatch.setitem(sys.modules, "PySide6", pyside6)
+    monkeypatch.setitem(sys.modules, "PySide6.QtWidgets", qtwidgets)
+    monkeypatch.delitem(sys.modules, "mypackage.check_version", raising=False)
     return importlib.import_module("mypackage.check_version")

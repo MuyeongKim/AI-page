@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { test } from "node:test";
+import { fileURLToPath } from "node:url";
 
 import {
   ADMIN_SESSION_TTL_SECONDS,
@@ -137,7 +138,10 @@ test("세션 확인과 로그아웃은 쿠키를 브라우저에 노출하지 �
 test("해시 생성 스크립트는 stdin 비밀번호로 환경변수 형식만 출력한다", () => {
   const completed = spawnSync(
     process.execPath,
-    [new URL("../scripts/hash-admin-password.mjs", import.meta.url).pathname, "--stdin"],
+    [
+      fileURLToPath(new URL("../scripts/hash-admin-password.mjs", import.meta.url)),
+      "--stdin",
+    ],
     { input: `${PASSWORD}\n`, encoding: "utf8" },
   );
   assert.equal(completed.status, 0, completed.stderr);

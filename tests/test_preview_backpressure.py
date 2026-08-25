@@ -1,3 +1,4 @@
+import math
 import os
 import time
 
@@ -115,6 +116,7 @@ def test_worker_frame_burst_is_rendered_only_by_bounded_gui_timer(
     main_window.juso = [str(source)]
     main_window.datasize = "fake-model.pt"
     main_window.file_count = 1
+    started_at = time.monotonic()
     main_window.submit()
 
     deadline = time.monotonic() + 3
@@ -124,8 +126,13 @@ def test_worker_frame_burst_is_rendered_only_by_bounded_gui_timer(
     qapp.processEvents()
 
     worker = _BurstWorker.instances[0]
+    elapsed_seconds = time.monotonic() - started_at
+    maximum_timer_renders = (
+        math.ceil(elapsed_seconds * 1_000 / gui.PREVIEW_REFRESH_INTERVAL_MS) + 1
+    )
     assert worker.emitted_count == 120
-    assert 1 <= len(render_threads) <= 5
+    assert 1 <= len(render_threads) <= maximum_timer_renders
+    assert len(render_threads) < worker.emitted_count
     assert all(thread is qapp.thread() for thread in render_threads)
     assert not main_window._preview_timer.isActive()
     assert main_window._pending_preview_frame is None

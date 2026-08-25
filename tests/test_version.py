@@ -20,8 +20,11 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 def test_current_release_drives_version_title_and_gui_changelog():
     changelog = format_gui_changelog()
 
-    assert CURRENT_VERSION == CURRENT_RELEASE.version == "26.08.17"
+    assert CURRENT_VERSION == CURRENT_RELEASE.version == "26.08.25"
     assert CURRENT_RELEASE.display_version in CURRENT_RELEASE.window_title
+    assert "2026.08.25 V26.08.25 시작 환경 자동 설정" in changelog
+    assert "인증 성공 안내에 앱 버전과 자동 감지된 추론 장치를 함께 표시" in changelog
+    assert "탐지 완료 후 결과 폴더를 GUI에서 바로 열 수 있는 버튼 추가" in changelog
     assert "2026.08.17 V26.08.17 운영 안전성 개선" in changelog
     assert "미리보기를 최신 프레임 1장·20fps로 표시" in changelog
     assert "랜딩페이지 관리자 공지와 GUI 온라인 소식을 공통 피드로 연동" in changelog
@@ -43,7 +46,7 @@ def test_release_feed_validation_reports_version_drift():
         "release_date": CURRENT_RELEASE.release_date,
     }
 
-    with pytest.raises(ValueError, match="version.*26\\.08\\.17.*26\\.08\\.18"):
+    with pytest.raises(ValueError, match="version.*26\\.08\\.25.*26\\.08\\.18"):
         assert_release_feed_matches_local(mismatched_feed)
 
 
