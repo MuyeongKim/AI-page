@@ -44,18 +44,29 @@ def test_result_folder_button_starts_disabled(window):
     assert not window.pushButton_open_output_folder.isEnabled()
 
 
-def test_result_folder_button_fits_at_minimum_window_width(window, qapp):
+def test_detection_target_controls_share_one_row_at_minimum_width(window, qapp):
     window.resize(560, 560)
     window.show()
     qapp.processEvents()
 
+    viewport = window.scrollArea.viewport()
+    controls = [
+        window.radioButton_all,
+        window.radioButton_person,
+        window.radioButton_car,
+        window.pushButton_open_output_folder,
+    ]
+    centers = [control.mapTo(viewport, control.rect().center()) for control in controls]
     button = window.pushButton_open_output_folder
-    button_left = button.mapTo(window.scrollArea.viewport(), button.rect().topLeft()).x()
-    button_right = button.mapTo(window.scrollArea.viewport(), button.rect().topRight()).x()
+    button_left = button.mapTo(viewport, button.rect().topLeft()).x()
+    button_right = button.mapTo(viewport, button.rect().topRight()).x()
 
     assert window.minimumWidth() <= 560
+    assert window.radioButton_all.text() == "전체"
+    assert [point.x() for point in centers] == sorted(point.x() for point in centers)
+    assert max(point.y() for point in centers) - min(point.y() for point in centers) <= 1
     assert button_left >= 0
-    assert button_right <= window.scrollArea.viewport().width()
+    assert button_right <= viewport.width()
 
 
 def test_result_folder_button_enables_only_after_processing_finishes(window, tmp_path):

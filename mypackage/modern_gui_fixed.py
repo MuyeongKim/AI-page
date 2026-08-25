@@ -161,7 +161,7 @@ class ModernUi_MainWindow(object):
 
         self.label_10 = QLabel("5. 탐지 대상(&T)")
         self.label_10.setObjectName("label_10")
-        self.radioButton_all = QRadioButton("전체 (사람 + 차량)")
+        self.radioButton_all = QRadioButton("전체")
         self.radioButton_all.setObjectName("radioButton_all")
         self.radioButton_person = QRadioButton("사람만")
         self.radioButton_person.setObjectName("radioButton_person")
@@ -284,26 +284,16 @@ class ModernUi_MainWindow(object):
 
         settings_layout.addWidget(self.label_8, 4, 1)
 
-        detect_layout = QVBoxLayout()
-        detect_layout.setContentsMargins(0, 0, 0, 0)
-        detect_layout.setSpacing(6)
+        detect_row = QHBoxLayout()
+        detect_row.setSpacing(8)
+        detect_row.addWidget(self.radioButton_all)
+        detect_row.addWidget(self.radioButton_person)
+        detect_row.addWidget(self.radioButton_car)
+        detect_row.addWidget(self.pushButton_open_output_folder)
+        detect_row.addStretch(1)
 
-        detect_scope_row = QHBoxLayout()
-        detect_scope_row.setSpacing(8)
-        detect_scope_row.addWidget(self.radioButton_all)
-        detect_scope_row.addWidget(self.radioButton_person)
-        detect_scope_row.addStretch(1)
-        detect_layout.addLayout(detect_scope_row)
-
-        detect_folder_row = QHBoxLayout()
-        detect_folder_row.setSpacing(8)
-        detect_folder_row.addWidget(self.radioButton_car)
-        detect_folder_row.addWidget(self.pushButton_open_output_folder)
-        detect_folder_row.addStretch(1)
-        detect_layout.addLayout(detect_folder_row)
-
-        settings_layout.addWidget(self.label_10, 5, 0)
-        settings_layout.addLayout(detect_layout, 5, 1)
+        settings_layout.addWidget(self.label_10, 5, 0, 1, 2)
+        settings_layout.addLayout(detect_row, 6, 0, 1, 2)
 
         self.main_layout.addWidget(self.settings_card)
 
