@@ -1,15 +1,15 @@
 {
   "version": "26.08.25",
   "release_date": "2026-08-25",
-  "download_url": null,
+  "download_url": "https://drive.google.com/file/d/1xUbX0TMZotujARoxPyfdAIXSHqiUWaAt/view?usp=drive_link",
   "download": {
-    "status": "preparing",
+    "status": "ready",
     "provider": "google_drive",
     "platform": "Windows",
-    "filename": null,
-    "url": null,
-    "size_bytes": null,
-    "sha256": null
+    "filename": "AI객체탐지프로그램 V26.0825(디렉토리).zip",
+    "url": "https://drive.google.com/file/d/1xUbX0TMZotujARoxPyfdAIXSHqiUWaAt/view?usp=drive_link",
+    "size_bytes": 2455856502,
+    "sha256": "835cd44caca8a77587c9ae5fa759bc0d31864abbe171c08e755c0096b01b24d5"
   },
   "changelog": [
     "인증 성공 안내에 앱 버전과 자동 감지된 추론 장치를 함께 표시",

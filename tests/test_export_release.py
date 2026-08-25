@@ -9,18 +9,21 @@ import pytest
 from mypackage.version import CURRENT_RELEASE
 from scripts.export_release import (
     ReleaseFeedError,
-    build_release_feed,
     build_ready_download,
+    build_release_feed,
     current_release_changelog,
     export_release,
 )
-
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 EXPORT_SCRIPT = PROJECT_ROOT / "scripts" / "export_release.py"
 
 
 GOOGLE_DRIVE_URL = "https://drive.google.com/file/d/example/view"
+CURRENT_DOWNLOAD_URL = (
+    "https://drive.google.com/file/d/"
+    "1xUbX0TMZotujARoxPyfdAIXSHqiUWaAt/view?usp=drive_link"
+)
 
 
 def _write_artifact(tmp_path: Path, content: bytes = b"real windows artifact") -> Path:
@@ -29,7 +32,7 @@ def _write_artifact(tmp_path: Path, content: bytes = b"real windows artifact") -
     return artifact
 
 
-def test_current_feed_is_generated_from_current_release_and_marks_download_preparing():
+def test_current_feed_publishes_the_current_google_drive_download():
     feed_path = PROJECT_ROOT / "latest_version.json"
     with feed_path.open(encoding="utf-8") as stream:
         actual = json.load(stream)
@@ -40,16 +43,14 @@ def test_current_feed_is_generated_from_current_release_and_marks_download_prepa
     assert actual["version"] == CURRENT_RELEASE.version
     assert actual["release_date"] == CURRENT_RELEASE.release_date
     assert actual["changelog"] == current_release_changelog()
-    assert actual["download_url"] is None
-    assert actual["download"] == {
-        "status": "preparing",
-        "provider": "google_drive",
-        "platform": "Windows",
-        "filename": None,
-        "url": None,
-        "size_bytes": None,
-        "sha256": None,
-    }
+    assert actual["download_url"] == CURRENT_DOWNLOAD_URL
+    assert actual["download"]["status"] == "ready"
+    assert actual["download"]["provider"] == "google_drive"
+    assert actual["download"]["platform"] == "Windows"
+    assert actual["download"]["filename"] == "AI객체탐지프로그램 V26.0825(디렉토리).zip"
+    assert actual["download"]["url"] == CURRENT_DOWNLOAD_URL
+    assert actual["download"]["size_bytes"] == 2_455_856_502
+    assert len(actual["download"]["sha256"]) == 64
 
 
 def test_ready_metadata_is_calculated_from_actual_file(tmp_path):
