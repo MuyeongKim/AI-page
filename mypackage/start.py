@@ -135,6 +135,10 @@ def authenticate_basic():
             "Stay Up AI - 인증",
             "AI 객체탐지 프로그램 실행을 위한 인증 키를 입력하세요:",
         )
+
+        if ok and not user_key:
+            QMessageBox.warning(None, "인증 키 입력", "인증 키를 입력해 주세요.")
+            continue
         
         if ok and user_key:
             if user_key == VALID_KEY:
@@ -185,6 +189,10 @@ def authenticate():
             "🔐 Stay Up AI - 인증",
             "✨ AI 객체탐지 프로그램 실행을 위한 인증 키를 입력하세요:\n\n🔑 인증 키:",
         )
+
+        if ok and not user_key:
+            QMessageBox.warning(None, "인증 키 입력", "인증 키를 입력해 주세요.")
+            continue
         
         if ok and user_key:
             if user_key == VALID_KEY:

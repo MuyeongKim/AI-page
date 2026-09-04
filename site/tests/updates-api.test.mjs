@@ -177,6 +177,7 @@ test("관리자 API는 content 브랜치의 site_updates.json만 CRUD한다", as
     adminRequest("PATCH", {
       id: "update-created",
       changes: { status: "archived", summary: "보관된 공지입니다." },
+      expected_revision: 1,
     }),
     dependencies,
   );
@@ -184,13 +185,59 @@ test("관리자 API는 content 브랜치의 site_updates.json만 CRUD한다", as
   assert.equal((await patchedResponse.json()).item.status, "archived");
 
   const deletedResponse = await handleAdminUpdates(
-    adminRequest("DELETE", { id: "update-created" }),
+    adminRequest("DELETE", { id: "update-created", expected_revision: 2 }),
     dependencies,
   );
   assert.equal(deletedResponse.status, 200);
   const deleted = await deletedResponse.json();
   assert.equal(deleted.deleted_id, "update-created");
   assert.equal(deleted.feed.items.length, 0);
+});
+
+test("두 편집 화면의 순차 저장에서 오래된 수정과 삭제는 최신 내용을 덮어쓰지 않는다", async () => {
+  const original = createUpdateItem(updateInput({ title: "원래 제목" }), { id: "shared", now: NOW });
+  const feed = updateFeedItems(createEmptyFeed(NOW), [original], { now: NOW });
+  const github = createGitHubFake({ files: { content: feed } });
+  const dependencies = { env: ENV, fetchImpl: github.fetchImpl, now: () => NOW };
+  const first = await handleAdminUpdates(adminRequest("PATCH", {
+    id: "shared", changes: { title: "먼저 저장한 제목" }, expected_revision: feed.revision,
+  }), dependencies);
+  assert.equal(first.status, 200);
+  const firstPayload = await first.json();
+  const writesBeforeConflict = github.state.requests.filter((request) => request.method === "PUT").length;
+
+  for (const [method, body] of [
+    ["PATCH", { id: "shared", changes: { title: "원래 제목", body: "다른 화면에서 수정한 본문" }, expected_revision: feed.revision }],
+    ["DELETE", { id: "shared", expected_revision: feed.revision }],
+  ]) {
+    const response = await handleAdminUpdates(adminRequest(method, body), dependencies);
+    assert.equal(response.status, 409);
+    assert.equal((await response.json()).error.code, "UPDATE_REVISION_CONFLICT");
+  }
+  assert.equal(github.state.requests.filter((request) => request.method === "PUT").length, writesBeforeConflict);
+  assert.equal(github.state.files.get("content").feed.items[0].title, "먼저 저장한 제목");
+
+  const retry = await handleAdminUpdates(adminRequest("PATCH", {
+    id: "shared", changes: { title: "먼저 저장한 제목", body: "비교 후 반영한 본문" },
+    expected_revision: firstPayload.feed.revision,
+  }), dependencies);
+  assert.equal(retry.status, 200);
+  assert.equal((await retry.json()).item.body, "비교 후 반영한 본문");
+});
+
+test("수정과 삭제에서 리비전 누락 또는 올바르지 않은 리비전은 쓰기 전에 거부한다", async () => {
+  const original = createUpdateItem(updateInput(), { id: "shared", now: NOW });
+  const feed = updateFeedItems(createEmptyFeed(NOW), [original], { now: NOW });
+  const github = createGitHubFake({ files: { content: feed } });
+  const dependencies = { env: ENV, fetchImpl: github.fetchImpl, now: () => NOW };
+  for (const method of ["PATCH", "DELETE"]) {
+    for (const revision of [undefined, null, -1, 1.5, "1"]) {
+      const body = { id: "shared", ...(method === "PATCH" ? { changes: { title: "수정" } } : {}) };
+      if (revision !== undefined) body.expected_revision = revision;
+      assert.equal((await handleAdminUpdates(adminRequest(method, body), dependencies)).status, 400);
+    }
+  }
+  assert.equal(github.state.requests.some((request) => request.method === "PUT"), false);
 });
 
 test("UTF-8 바이트가 큰 스키마 허용 본문도 관리자 API가 저장한다", async () => {

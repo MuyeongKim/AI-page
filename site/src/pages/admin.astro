@@ -105,7 +105,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
                   name="version"
                   type="text"
                   maxlength="40"
-                  placeholder="예: 26.08.17"
+                  placeholder="예: 26.0905"
                   autocomplete="off"
                 />
                 <p class="admin-field-help">
@@ -175,6 +175,15 @@ import BaseLayout from "../layouts/BaseLayout.astro";
                   >
                 </div>
                 <p class="admin-form-message" id="editor-message" role="status" aria-live="polite"></p>
+                <section class="admin-conflict-panel" id="admin-conflict-panel" aria-labelledby="conflict-title" hidden>
+                  <h4 id="conflict-title">최신 저장본과 비교해 주세요</h4>
+                  <p>위 입력란의 작성 내용은 유지했습니다. 아래 최신 저장본과 비교하고 필요한 내용을 입력란에 반영하세요.</p>
+                  <p id="admin-conflict-status" role="status" aria-live="polite"></p>
+                  <dl id="admin-conflict-values"></dl>
+                  <button class="admin-small-button" id="admin-conflict-refresh" type="button">최신 저장본 다시 불러오기</button>
+                  <button class="admin-small-button is-primary" id="admin-conflict-resume" type="button" disabled>비교한 내용으로 수정 계속</button>
+                  <p class="admin-field-help">수정 계속 후 ‘변경 저장’을 누르면 위 입력란의 내용으로 저장합니다.</p>
+                </section>
               </form>
             </section>
 
@@ -266,6 +275,11 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     const revisionValue = document.querySelector<HTMLElement>("#admin-revision");
     const totalCount = document.querySelector<HTMLElement>("#admin-total-count");
     const publishedCount = document.querySelector<HTMLElement>("#admin-published-count");
+    const conflictPanel = document.querySelector<HTMLElement>("#admin-conflict-panel");
+    const conflictStatus = document.querySelector<HTMLElement>("#admin-conflict-status");
+    const conflictValues = document.querySelector<HTMLElement>("#admin-conflict-values");
+    const conflictRefreshButton = document.querySelector<HTMLButtonElement>("#admin-conflict-refresh");
+    const conflictResumeButton = document.querySelector<HTMLButtonElement>("#admin-conflict-resume");
 
     const kindInput = document.querySelector<HTMLSelectElement>("#update-kind");
     const versionInput = document.querySelector<HTMLInputElement>("#update-version");
@@ -278,11 +292,44 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     ];
 
     let currentItems: AdminUpdate[] = [];
+    let currentRevision = 0;
     let editingId: string | null = null;
+    let editingRevision: number | null = null;
+    let comparisonRevision: number | null = null;
+    let comparisonRequestId = 0;
+    let comparisonMissing = false;
+    let conflictPending = false;
+    let saving = false;
+    let disabledWhileSaving: Array<[HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | HTMLButtonElement, boolean]> = [];
 
     const setText = (element: HTMLElement | null, text: string) => {
       if (element) element.textContent = text;
     };
+
+    function clearConflict() {
+      comparisonRequestId += 1;
+      conflictPending = false;
+      comparisonRevision = null;
+      comparisonMissing = false;
+      if (conflictPanel) conflictPanel.hidden = true;
+      conflictValues?.replaceChildren();
+      if (conflictResumeButton) conflictResumeButton.disabled = true;
+      if (saveButton) saveButton.disabled = saving;
+    }
+
+    function setSaving(value: boolean) {
+      saving = value;
+      if (value) {
+        const controls = workspace?.querySelectorAll<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | HTMLButtonElement>("input, textarea, select, button") ?? [];
+        disabledWhileSaving = [...controls].map((control) => [control, control.disabled]);
+        disabledWhileSaving.forEach(([control]) => { control.disabled = true; });
+      } else {
+        disabledWhileSaving.forEach(([control, disabled]) => { control.disabled = disabled; });
+        disabledWhileSaving = [];
+        if (saveButton) saveButton.disabled = conflictPending;
+        if (conflictResumeButton) conflictResumeButton.disabled = comparisonRevision === null;
+      }
+    }
 
     async function adminRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
       if (!path.startsWith("/api/admin/")) {
@@ -402,6 +449,10 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         showLogin("로그인 세션이 만료되었습니다. 다시 로그인해 주세요.");
         return;
       }
+      if (error instanceof AdminApiError && error.status === 409 && target === listStatus) {
+        setText(target, "다른 변경이 먼저 저장되었습니다. ‘새로고침’으로 최신 내용을 확인한 뒤 다시 시도해 주세요.");
+        return;
+      }
       setText(
         target,
         error instanceof Error
@@ -435,7 +486,9 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     };
 
     const startEditing = (item: AdminUpdate) => {
+      clearConflict();
       editingId = item.id;
+      editingRevision = currentRevision;
       if (kindInput) kindInput.value = item.kind;
       if (versionInput) versionInput.value = item.version ?? "";
       if (titleInput) titleInput.value = item.title;
@@ -457,7 +510,9 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     };
 
     const resetEditor = (focus = false) => {
+      clearConflict();
       editingId = null;
+      editingRevision = null;
       updateForm?.reset();
       if (kindInput) kindInput.value = "notice";
       audienceInputs.forEach((input) => {
@@ -566,6 +621,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 
     const applyFeed = (feed: AdminFeed, message: string) => {
       currentItems = feed.items;
+      currentRevision = feed.revision;
       setText(revisionValue, String(feed.revision));
       setText(totalCount, String(feed.items.length));
       setText(
@@ -589,6 +645,60 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       }
     };
 
+    const loadConflictComparison = async () => {
+      const requestId = ++comparisonRequestId;
+      conflictPending = true;
+      if (saveButton) saveButton.disabled = true;
+      comparisonRevision = null;
+      if (conflictPanel) conflictPanel.hidden = false;
+      if (conflictRefreshButton) conflictRefreshButton.disabled = true;
+      if (conflictResumeButton) conflictResumeButton.disabled = true;
+      conflictValues?.replaceChildren();
+      setText(editorMessage, "다른 변경과 충돌해 저장하지 않았습니다. 작성 내용은 입력란에 유지했습니다.");
+      setText(conflictStatus, "비교할 최신 저장본을 불러오고 있습니다.");
+      try {
+        const payload = await adminRequest<unknown>("/api/admin/updates");
+        if (requestId !== comparisonRequestId) return;
+        const feed = extractFeed(payload);
+        applyFeed(feed, "비교할 최신 업데이트 목록을 불러왔습니다.");
+        const latest = feed.items.find((item) => item.id === editingId);
+        comparisonRevision = feed.revision;
+        comparisonMissing = !latest;
+        if (latest) {
+          const values = [
+            ["분류", kindLabels[latest.kind]],
+            ["게시 상태", statusLabels[latest.status]],
+            ["관련 버전", latest.version ?? "없음"],
+            ["제목", latest.title],
+            ["한 줄 요약", latest.summary],
+            ["상세 내용", latest.body],
+            ["표시 위치", latest.audiences.map((value) => audienceLabels[value]).join(", ")],
+            ["관련 링크", latest.link_url ?? "없음"],
+          ];
+          values.forEach(([label, value]) => {
+            const term = document.createElement("dt");
+            const description = document.createElement("dd");
+            term.textContent = label;
+            description.textContent = value;
+            conflictValues?.append(term, description);
+          });
+          setText(conflictStatus, `최신 저장 시각: ${formatDateTime(latest.updated_at)}`);
+          setText(conflictResumeButton, "비교한 내용으로 수정 계속");
+        } else {
+          setText(conflictStatus, "이 공지는 다른 곳에서 삭제되었습니다. 작성한 내용을 새 초안으로 전환할 수 있습니다.");
+          setText(conflictResumeButton, "작성 내용을 새 초안으로 전환");
+        }
+      } catch (error) {
+        if (requestId !== comparisonRequestId) return;
+        handleAdminError(error, conflictStatus);
+      } finally {
+        if (requestId === comparisonRequestId) {
+          if (conflictRefreshButton) conflictRefreshButton.disabled = saving;
+          if (conflictResumeButton) conflictResumeButton.disabled = saving || comparisonRevision === null;
+        }
+      }
+    };
+
     const changeStatus = async (item: AdminUpdate, status: UpdateStatus) => {
       const action = status === "published" ? "게시" : "게시 중단";
       if (!window.confirm(`「${item.title}」을 ${action}하시겠습니까?`)) return;
@@ -598,7 +708,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         if (status === "published") changes.published_at = new Date().toISOString();
         const payload = await adminRequest<unknown>("/api/admin/updates", {
           method: "PATCH",
-          body: JSON.stringify({ id: item.id, changes }),
+          body: JSON.stringify({ id: item.id, changes, expected_revision: currentRevision }),
         });
         applyFeed(extractFeed(payload), `${action} 상태를 반영했습니다.`);
       } catch (error) {
@@ -614,7 +724,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       try {
         const payload = await adminRequest<unknown>("/api/admin/updates", {
           method: "DELETE",
-          body: JSON.stringify({ id: item.id }),
+          body: JSON.stringify({ id: item.id, expected_revision: currentRevision }),
         });
         applyFeed(extractFeed(payload), "업데이트를 삭제했습니다.");
         if (editingId === item.id) resetEditor();
@@ -684,6 +794,12 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 
     updateForm?.addEventListener("submit", async (event) => {
       event.preventDefault();
+      if (saving) return;
+      if (conflictPending) {
+        setText(editorMessage, "작성 내용은 유지되어 있습니다. 아래 최신 저장본과 비교한 뒤 ‘수정 계속’을 눌러 주세요.");
+        conflictPanel?.scrollIntoView({ block: "nearest" });
+        return;
+      }
       if (!validateAudiences() || !updateForm.reportValidity()) return;
       if (
         !kindInput ||
@@ -739,13 +855,13 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       };
       const itemBeingEdited = currentItems.find((item) => item.id === editingId);
       const wasEditing = editingId !== null;
-      saveButton && (saveButton.disabled = true);
+      setSaving(true);
       setText(editorMessage, editingId ? "변경 내용을 저장하고 있습니다." : "초안을 저장하고 있습니다.");
       try {
         const payload = editingId
           ? await adminRequest<unknown>("/api/admin/updates", {
               method: "PATCH",
-              body: JSON.stringify({ id: editingId, changes: editableFields }),
+              body: JSON.stringify({ id: editingId, changes: editableFields, expected_revision: editingRevision }),
             })
           : await adminRequest<unknown>("/api/admin/updates", {
               method: "POST",
@@ -765,14 +881,33 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         setText(editorMessage, wasEditing ? "변경 내용을 저장했습니다." : "초안을 저장했습니다.");
       } catch (error) {
         handleAdminError(error, editorMessage);
+        if (error instanceof AdminApiError && error.status === 409 && wasEditing) {
+          await loadConflictComparison();
+        }
       } finally {
-        if (saveButton) saveButton.disabled = false;
+        setSaving(false);
       }
     });
 
     cancelEditButton?.addEventListener("click", () => resetEditor(true));
     newItemButton?.addEventListener("click", () => resetEditor(true));
     refreshButton?.addEventListener("click", () => void loadUpdates());
+    conflictRefreshButton?.addEventListener("click", () => void loadConflictComparison());
+    conflictResumeButton?.addEventListener("click", () => {
+      if (comparisonRevision === null) return;
+      if (comparisonMissing) {
+        editingId = null;
+        editingRevision = null;
+        setText(editorTitle, "새 공지 작성");
+        setText(saveButton, "초안 저장");
+        if (cancelEditButton) cancelEditButton.hidden = true;
+      } else {
+        editingRevision = comparisonRevision;
+      }
+      clearConflict();
+      setText(editorMessage, "작성 내용을 유지했습니다. 필요한 수정을 마친 뒤 저장해 주세요.");
+      titleInput?.focus();
+    });
 
     const initializeAdmin = async () => {
       try {

@@ -304,8 +304,17 @@ def test_gps_processes_only_explicit_image_paths(tmp_path, monkeypatch):
         inspected.append(Path(path).name)
         return (37.0, 127.0)
 
-    def fake_plot(locations, output_html="map.html", open_browser=True):
-        plotted.append((locations, Path(output_html), open_browser))
+    def fake_plot(
+        locations,
+        output_html="map.html",
+        open_browser=True,
+        *,
+        photo_names=None,
+        should_cancel=None,
+    ):
+        plotted.append((locations, Path(output_html), open_browser, photo_names))
+        assert should_cancel is None
+        return Path(output_html)
 
     monkeypatch.setattr(gps2, "extract_gps_data", fake_extract)
     monkeypatch.setattr(gps2, "plot_location_on_map", fake_plot)
@@ -318,7 +327,7 @@ def test_gps_processes_only_explicit_image_paths(tmp_path, monkeypatch):
     assert result == 1
     assert inspected == [selected.name]
     assert stale.name not in inspected
-    assert plotted == [([(37.0, 127.0)], Path("map.html"), True)]
+    assert plotted == [([(37.0, 127.0)], Path("map.html"), True, [selected.name])]
 
 
 def test_local_map_server_returns_404_for_sibling_files(tmp_path):

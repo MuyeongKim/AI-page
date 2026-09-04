@@ -24,6 +24,7 @@
 
 
 import gc  # 가비지 컬렉터 추가
+import html
 import math
 import os
 import platform
@@ -58,6 +59,8 @@ from mypackage import gps2, start
 from mypackage.device import get_preferred_device, is_mps_available
 from mypackage.modern_gui_fixed import ModernUi_MainWindow
 from mypackage.notices import NOTICE_SOURCE_CACHE, NoticeLoadResult, OnlineNoticeLoader
+from mypackage.result_view import ResultComparisonDialog
+from mypackage.output_storage import publish_output_files
 from mypackage.video_source import (
     CAPTURE_BOARD_SOURCE,
     VIDEO_FILE_SOURCE,
@@ -243,6 +246,15 @@ class DetectionProgressDialog(QDialog):
         self.label.setWordWrap(True)
         layout.addWidget(self.label)
 
+        self.elapsed_label = QLabel("경과 시간: 00:00")
+        self.elapsed_label.setAccessibleName("작업 경과 시간")
+        layout.addWidget(self.elapsed_label)
+        self._started_at = time.monotonic()
+        self._elapsed_timer = QTimer(self)
+        self._elapsed_timer.setInterval(1000)
+        self._elapsed_timer.timeout.connect(self._update_elapsed)
+        self._elapsed_timer.start()
+
         self.progress_bar = QProgressBar()
         self.progress_bar.setRange(0, maximum if maximum > 0 else 0)
         layout.addWidget(self.progress_bar)
@@ -257,6 +269,20 @@ class DetectionProgressDialog(QDialog):
     def setLabelText(self, message):
         if not self._cancel_requested:
             self.label.setText(message)
+
+    def _update_elapsed(self):
+        seconds = int(time.monotonic() - self._started_at)
+        self.elapsed_label.setText(f"경과 시간: {seconds // 60:02d}:{seconds % 60:02d}")
+
+    def set_stage_progress(self, message, value, maximum):
+        if self._cancel_requested:
+            return
+        if maximum > 0 and value <= maximum:
+            self.progress_bar.setRange(0, maximum)
+            self.progress_bar.setValue(value)
+        else:
+            self.progress_bar.setRange(0, 0)
+        self.setLabelText(message)
 
     def set_terminal_text(self, message):
         self.label.setText(message)
@@ -276,7 +302,15 @@ class DetectionProgressDialog(QDialog):
 
     def finish(self):
         self._allow_close = True
+        self._elapsed_timer.stop()
         self.close()
+
+    def reject(self):
+        """QDialog handles Escape through reject(), bypassing closeEvent()."""
+        if self._allow_close:
+            super().reject()
+        else:
+            self.request_cancel()
 
     def closeEvent(self, event):
         if self._allow_close:
@@ -286,6 +320,27 @@ class DetectionProgressDialog(QDialog):
         event.ignore()
 
 
+class GPSMappingWorker(QThread):
+    outcome = Signal(object, str)
+
+    def __init__(self, paths, output_folder, parent=None):
+        super().__init__(parent)
+        self.paths = tuple(paths)
+        self.output_folder = output_folder
+
+    def run(self):
+        try:
+            result = gps2.process_image_paths_detailed(
+                self.paths, output_directory=self.output_folder, open_browser=False,
+                should_cancel=self.isInterruptionRequested,
+            )
+            self.outcome.emit(result, "")
+        except InterruptedError:
+            self.outcome.emit(None, "cancelled")
+        except Exception as error:
+            self.outcome.emit(None, str(error))
+
+
 class DetectionWorker(QThread):
     """
     YOLO 객체 탐지를 백그라운드에서 수행하는 워커 스레드
@@ -293,6 +348,7 @@ class DetectionWorker(QThread):
 
     # 시그널 정의
     progress_signal = Signal(int, str)  # 진행률 (퍼센트/카운트, 메시지)
+    stage_signal = Signal(str, int, int)  # 단계 메시지, 현재 수, 전체 수(0이면 미정)
     log_signal = Signal(str)  # 로그 메시지
     error_signal = Signal(str)  # 에러 메시지
     finished_signal = Signal(dict)  # 작업 완료 시그널 (최종 결과 포함)
@@ -345,6 +401,7 @@ class DetectionWorker(QThread):
             self.log_signal.emit("🚀 작업 스레드 시작")
 
             # 모델 로드
+            self.stage_signal.emit(f"모델 준비 중: {self.datasize}", 0, 0)
             self.log_signal.emit(f"모델 로딩 중: {self.datasize}")
             self.model = YOLO(resolve_model_source(self.datasize))
 
@@ -458,6 +515,7 @@ class DetectionWorker(QThread):
 
     def process_images(self, output_folder, detected_files):
         """이미지 파일 처리 로직"""
+        self.stage_signal.emit("사진 분석 중", 0, self.file_count)
         if isinstance(self.juso, (str, os.PathLike)):
             sources = [str(self.juso)]
         elif isinstance(self.juso, (list, tuple)):
@@ -494,6 +552,9 @@ class DetectionWorker(QThread):
 
     def process_image_attempt(self, source, detected_files, output_folder):
         """사진 한 건의 시도·성공·실패 수를 기록한다."""
+        self.stage_signal.emit(
+            f"사진 분석 중: {Path(source).name}", self.attempted_count, self.file_count
+        )
         self.attempted_count += 1
         succeeded = self.process_single_file(source, detected_files, output_folder)
         if succeeded is False:
@@ -506,6 +567,7 @@ class DetectionWorker(QThread):
             self.processed_count,
             f"진행 중... {self.processed_count} / {self.file_count}",
         )
+        self.stage_signal.emit("사진 분석 중", self.processed_count, self.file_count)
         if self.processed_count % 10 == 0:
             gc.collect()
             clear_torch_cache(self.device)
@@ -521,6 +583,7 @@ class DetectionWorker(QThread):
             self.processed_count,
             f"진행 중... {self.processed_count} / {self.file_count}",
         )
+        self.stage_signal.emit("사진 분석 중", self.processed_count, self.file_count)
 
     def process_single_file(self, source, detected_files, output_folder):
         """단일 파일 YOLO 처리"""
@@ -606,14 +669,14 @@ class DetectionWorker(QThread):
                 if not source_file.is_file() or source_file.suffix.lower() not in VIDEO_EXTENSIONS:
                     raise ValueError("지원하는 영상 파일을 선택해 주세요.")
 
-                output_candidate = Path(output_folder) / f"detected_{source_file.stem}.mp4"
-                output_video_filename = Path(self.get_unique_filename(str(output_candidate)))
+                output_video_filename = Path(output_folder) / f"detected_{source_file.stem}.mp4"
                 partial_video_filename = output_video_filename.with_name(
                     f".{output_video_filename.stem}.{uuid4().hex}.partial.mp4"
                 )
             else:
                 source_path = resolve_video_source_path(self.source, self.juso)
 
+            self.stage_signal.emit("영상 입력 준비 중", 0, 0)
             cap = self.open_video_capture(source_path)
             if not cap.isOpened():
                 if isinstance(source_path, int):
@@ -652,6 +715,9 @@ class DetectionWorker(QThread):
 
             fps_buffer = deque(maxlen=10)
             self.log_signal.emit("실시간 미리보기를 별도 창에 표시합니다.")
+            stage_message = "영상 분석 중" if should_save_video else "외부 영상 분석 중"
+            self.stage_signal.emit(stage_message, 0, reported_frame_count or 0)
+            last_stage_update = time.monotonic()
 
             while self.is_running:
                 ret, frame = cap.read()
@@ -725,12 +791,19 @@ class DetectionWorker(QThread):
 
                 frame_counter += 1
                 self.processed_count = frame_counter
+                now = time.monotonic()
+                if frame_counter == 1 or now - last_stage_update >= 0.25:
+                    self.stage_signal.emit(
+                        stage_message, frame_counter, reported_frame_count or 0
+                    )
+                    last_stage_update = now
                 if frame_counter % 100 == 0:
                     gc.collect()
                     clear_torch_cache(self.device)
 
             self.video_frame_count = frame_counter
             self.written_frame_count = written_frame_count
+            self.stage_signal.emit(stage_message, frame_counter, reported_frame_count or 0)
 
             if not self.is_running:
                 terminal_status = DETECTION_STATUS_CANCELLED
@@ -826,7 +899,12 @@ class DetectionWorker(QThread):
                 DETECTION_STATUS_PARTIAL,
             }:
                 try:
-                    os.replace(partial_video_filename, output_video_filename)
+                    self.stage_signal.emit("검증한 결과 영상 저장 중", 0, 0)
+                    [output_video_filename] = publish_output_files(
+                        [partial_video_filename],
+                        [output_video_filename.name],
+                        is_cancelled=lambda: not self.is_running,
+                    )
                 except Exception:
                     partial_video_filename.unlink(missing_ok=True)
                     raise
@@ -864,6 +942,8 @@ class DetectionWorker(QThread):
 
     def validate_video_output(self, output_path):
         """저장된 영상의 모든 프레임을 다시 읽어 불완전 출력을 거부한다."""
+        expected_frames = self._video_output_expected_frames
+        self.stage_signal.emit("결과 영상 전체 검증 중", 0, expected_frames or 0)
         if output_path is None or not output_path.is_file() or output_path.stat().st_size <= 0:
             return False
 
@@ -873,6 +953,7 @@ class DetectionWorker(QThread):
                 return False
 
             decoded_frame_count = 0
+            last_stage_update = time.monotonic()
             while True:
                 if not self.is_running:
                     return False
@@ -882,8 +963,16 @@ class DetectionWorker(QThread):
                 if frame is None or frame.size <= 0:
                     return False
                 decoded_frame_count += 1
+                now = time.monotonic()
+                if decoded_frame_count == 1 or now - last_stage_update >= 0.25:
+                    self.stage_signal.emit(
+                        "결과 영상 전체 검증 중", decoded_frame_count, expected_frames or 0
+                    )
+                    last_stage_update = now
 
-            expected_frames = self._video_output_expected_frames
+            self.stage_signal.emit(
+                "결과 영상 전체 검증 중", decoded_frame_count, expected_frames or 0
+            )
             if decoded_frame_count <= 0:
                 return False
             return expected_frames is None or decoded_frame_count == expected_frames
@@ -898,33 +987,28 @@ class DetectionWorker(QThread):
         cv2.putText(img, f"Car: {car_count}", (10, 90), font, 0.7, (255, 255, 255), 2)
 
     def file_copy(self, source, result, output_folder):
-        """Save only this inference result and atomically publish the annotated image."""
+        """Stage both photo files, then publish them with one collision-free suffix."""
         output_folder = Path(output_folder)
         output_folder.mkdir(parents=True, exist_ok=True)
         source_path = Path(source)
-        original_destination = output_folder / ("original_" + os.path.basename(source))
-        result_destination = output_folder / f"detected_{source_path.stem}.jpg"
-
-        if original_destination.exists():
-            original_destination = Path(self.get_unique_filename(str(original_destination)))
-        if result_destination.exists():
-            result_destination = Path(self.get_unique_filename(str(result_destination)))
-
         partial_result = output_folder / f".{uuid4().hex}.partial.jpg"
-        copied_original = False
+        partial_original = output_folder / f".{uuid4().hex}.original.partial{source_path.suffix}"
         try:
             result.save(filename=str(partial_result))
             if not partial_result.is_file() or partial_result.stat().st_size <= 0:
                 raise RuntimeError("현재 탐지 결과 이미지를 저장하지 못했습니다.")
 
-            shutil.copy2(source, original_destination)
-            copied_original = True
-            os.replace(partial_result, result_destination)
-        except Exception:
+            shutil.copy2(source, partial_original)
+            if partial_original.stat().st_size != source_path.stat().st_size:
+                raise RuntimeError("원본 사진 복사본의 크기가 일치하지 않습니다.")
+            original_destination, result_destination = publish_output_files(
+                [partial_original, partial_result],
+                ["original_" + source_path.name, f"detected_{source_path.stem}.jpg"],
+                is_cancelled=lambda: not self.is_running,
+            )
+        finally:
             partial_result.unlink(missing_ok=True)
-            if copied_original:
-                original_destination.unlink(missing_ok=True)
-            raise
+            partial_original.unlink(missing_ok=True)
 
         return (
             str(original_destination.resolve()),
@@ -970,6 +1054,11 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
         self._closing_without_confirmation = False
         self._cleanup_done = False
         self._cancel_requested = False
+        self._gps_worker = None
+        self._pending_gps_outcome = (None, "")
+        self._close_after_gps = False
+        self._last_detection_result = None
+        self._comparison_dialog = None
         self._preview_frame_lock = threading.Lock()
         self._pending_preview_frame = None
         self._preview_accepting_frames = False
@@ -990,6 +1079,11 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
         self.pushButton_search_2.clicked.connect(self.browse_folders)
         self.pushButton_enter.clicked.connect(self.submit)
         self.pushButton_open_output_folder.clicked.connect(self.open_detection_folder)
+        self.open_output_button.clicked.connect(self.open_output_folder)
+        self.open_result_button.clicked.connect(self.open_selected_result)
+        self.compare_result_button.clicked.connect(self.compare_selected_result)
+        self.result_files_combo.currentIndexChanged.connect(self.update_result_actions)
+        self.plainTextEdit_online_notice.anchorClicked.connect(self.open_notice_link)
         self.comboBox_data.currentIndexChanged.connect(self.update_datasize)
         self.comboBox_source.currentIndexChanged.connect(self.update_source)
         self.comboBox_percentage.currentIndexChanged.connect(self.option_percentage)
@@ -1015,7 +1109,7 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
         self.sync_control_defaults()
         self.update_detection_target()
         self.update_action_states()
-        self.set_main_status(f"준비됨 · 자동 장치: {self.device.upper()}")
+        self.set_main_status("입력 소스와 탐지 모델을 선택해 주세요.")
         self.reset_preview("실시간 입력을 시작하면 미리보기 새창이 열립니다.")
 
     def showEvent(self, event):
@@ -1063,9 +1157,13 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
             finally:
                 self.comboBox_device.blockSignals(previously_blocked)
 
-    def set_main_status(self, message):
+    def set_main_status(self, message, state="ready"):
         if hasattr(self, "status_label"):
             self.status_label.setText(message)
+            if self.status_label.property("state") != state:
+                self.status_label.setProperty("state", state)
+                # Let Qt rebuild its stylesheet without manipulating QStyle ownership.
+                self.status_label.setStyleSheet(f"/* work status: {state} */")
 
     @Slot(object)
     def _display_online_notices(self, result):
@@ -1092,9 +1190,16 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
                 details.extend(("", f"대상 버전: {item.version}"))
             if item.link_url:
                 details.append(f"자세히 보기: {item.link_url}")
-            sections.append("\n".join(details))
+            safe_section = html.escape("\n".join(details)).replace("\n", "<br>")
+            if item.link_url:
+                safe_url = html.escape(item.link_url, quote=True)
+                safe_section = safe_section.replace(
+                    f"자세히 보기: {safe_url}",
+                    f'<a href="{safe_url}">자세히 보기: {safe_url}</a>',
+                )
+            sections.append(safe_section)
 
-        self.plainTextEdit_online_notice.setPlainText("\n\n──────────\n\n".join(sections))
+        self.plainTextEdit_online_notice.setHtml("<hr>".join(sections))
         self._online_notice_revision = result.revision
         last_seen_revision = self._last_seen_notice_revision()
         tab_title = (
@@ -1104,6 +1209,144 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
         )
         self.infoTabs.setTabText(self.online_notice_tab_index, tab_title)
         self.infoTabs.setTabVisible(self.online_notice_tab_index, True)
+
+    @Slot(QUrl)
+    def open_notice_link(self, url):
+        if url.scheme() == "https" and url.host() and not url.userInfo():
+            if not QDesktopServices.openUrl(url):
+                QMessageBox.warning(self, "링크 열기", "브라우저를 열지 못했습니다. 링크를 복사해 주세요.")
+
+    def remember_detection_result(self, result, message):
+        self._last_detection_result = dict(result)
+        self.result_summary.setPlainText(message)
+        self.result_files_combo.clear()
+        originals = result.get("original_files", [])
+        for index, output in enumerate(result.get("output_files", [])):
+            original = originals[index] if index < len(originals) else None
+            self.result_files_combo.addItem(
+                Path(output).name, {"output": output, "original": original}
+            )
+        self.update_result_actions()
+        self.infoTabs.setCurrentIndex(self.result_tab_index)
+        self.scrollArea.ensureWidgetVisible(self.infoTabs)
+
+    def update_result_actions(self, _index=None):
+        selected = self.result_files_combo.currentData() or {}
+        self.result_files_combo.setEnabled(self.result_files_combo.count() > 0)
+        self.open_result_button.setEnabled(bool(selected.get("output")))
+        self.compare_result_button.setEnabled(bool(selected.get("original")))
+        result = self._last_detection_result or {}
+        folder = result.get("output_folder")
+        self.open_output_button.setEnabled(bool(folder) and Path(folder).is_dir())
+
+    def open_local_result(self, path):
+        if not path or not Path(path).exists():
+            QMessageBox.warning(self, "결과 열기", "파일이 이동되었거나 삭제되었습니다.")
+            return
+        if not QDesktopServices.openUrl(QUrl.fromLocalFile(str(Path(path).resolve()))):
+            QMessageBox.warning(self, "결과 열기", "파일을 열지 못했습니다. 저장 폴더를 확인해 주세요.")
+
+    def open_output_folder(self):
+        self.open_local_result((self._last_detection_result or {}).get("output_folder"))
+
+    def open_selected_result(self):
+        self.open_local_result((self.result_files_combo.currentData() or {}).get("output"))
+
+    def compare_selected_result(self):
+        selected = self.result_files_combo.currentData() or {}
+        original, output = selected.get("original"), selected.get("output")
+        if not original or not output or not all(Path(path).is_file() for path in (original, output)):
+            QMessageBox.warning(self, "결과 비교", "원본 또는 탐지 결과 파일을 찾을 수 없습니다.")
+            return
+        if self._comparison_dialog is not None:
+            self._comparison_dialog.close()
+            self._comparison_dialog.deleteLater()
+        self._comparison_dialog = ResultComparisonDialog(original, output, self)
+        self._comparison_dialog.show()
+
+    def start_gps_mapping(self, paths, output_folder):
+        if self._gps_worker is not None or self._processing:
+            return
+        self._pending_gps_outcome = (None, "")
+        self._cancel_requested = False
+        self._gps_worker = GPSMappingWorker(paths, output_folder, self)
+        self._gps_worker.outcome.connect(self._remember_gps_outcome)
+        self._gps_worker.finished.connect(self._finish_gps_mapping)
+        self.progress_dialog = DetectionProgressDialog("사진 GPS 정보를 확인하는 중입니다…", 0, self)
+        self.progress_dialog.canceled.connect(self.cancel_detection)
+        self.set_processing_state(True)
+        self.set_main_status("GPS 분석 중 · 사진 위치정보를 확인하고 있습니다", "working")
+        self.progress_dialog.show()
+        try:
+            self._gps_worker.start()
+        except Exception as error:
+            self._gps_worker.deleteLater()
+            self._gps_worker = None
+            self.close_progress_dialog()
+            self.set_processing_state(False)
+            self.set_main_status("GPS 분석을 시작하지 못했습니다", "error")
+            QMessageBox.warning(self, "GPS 분석 오류", str(error))
+
+    @Slot(object, str)
+    def _remember_gps_outcome(self, result, error):
+        self._pending_gps_outcome = (result, error)
+
+    @Slot()
+    def _finish_gps_mapping(self):
+        worker = self._gps_worker
+        self._gps_worker = None
+        if worker is not None:
+            worker.deleteLater()
+        self.close_progress_dialog()
+        self.set_processing_state(False)
+        if self._close_after_gps:
+            self._close_after_gps = False
+            self._closing_without_confirmation = True
+            self.close()
+            return
+        result, error = self._pending_gps_outcome
+        self._pending_gps_outcome = (None, "")
+        if error == "cancelled":
+            message = "GPS 분석을 취소했습니다. 탐지 결과 파일은 그대로 보존됩니다."
+            self.set_main_status(message, "warning")
+        elif error:
+            message = f"GPS 지도를 생성하지 못했습니다. 탐지 결과 파일은 보존됩니다.\n{error}"
+            self.set_main_status("GPS 지도 생성 실패 · 탐지 결과는 보존됨", "error")
+            QMessageBox.warning(self, "GPS 분석 오류", message)
+        elif result is not None:
+            message = (
+                f"GPS 확인: {result.checked_count}장 · 위치 발견: {result.location_count}장 · "
+                f"GPS 없음: {result.no_gps_count}장"
+            )
+            if result.errors:
+                message += "\n읽지 못한 파일:\n" + "\n".join(result.errors)
+            if result.map_path:
+                message += f"\n지도 파일: {result.map_path}"
+                if self._cancel_requested:
+                    message += "\n취소 요청 시 지도 저장이 이미 진행 중이었습니다. 저장된 지도는 보존하고 자동으로 열지 않았습니다."
+                    self.set_main_status("GPS 취소 요청 반영 · 저장된 지도는 보존됨", "warning")
+                else:
+                    try:
+                        opened = gps2.open_map_in_browser(result.map_path)
+                    except Exception as open_error:
+                        opened = False
+                        message += f"\n브라우저 열기 오류: {open_error}"
+                    if not opened:
+                        message += "\n지도를 저장했지만 브라우저를 열지 못했습니다. 저장 폴더를 확인해 주세요."
+                    self.set_main_status(
+                        f"GPS 지도 저장 완료 · 위치 {result.location_count}곳",
+                        "ready" if opened else "warning",
+                    )
+            else:
+                message += "\n지도에 표시할 GPS 정보가 없습니다. GPS가 기록된 사진인지 확인해 주세요."
+                self.set_main_status("GPS 분석 완료 · 표시할 위치정보 없음", "warning")
+            if result.errors:
+                QMessageBox.warning(self, "GPS 분석 결과", message)
+            else:
+                QMessageBox.information(self, "GPS 분석 결과", message)
+        else:
+            return
+        self.result_summary.appendPlainText("\n[GPS 분석]\n" + message)
 
     def _last_seen_notice_revision(self):
         value = self._online_notice_settings.value(NOTICE_SETTINGS_REVISION_KEY, 0)
@@ -1224,6 +1467,23 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
         self.pushButton_open_output_folder.setEnabled(
             not self._processing and self._detection_output_folder_is_ready()
         )
+        if not self._processing:
+            if not has_source:
+                message = "입력 소스와 탐지 모델을 선택해 주세요."
+            elif not self.datasize:
+                message = "탐지 모델을 선택해 주세요."
+            elif not self.input_is_ready():
+                message = (
+                    "캡처 장치 번호는 0 이상의 정수로 입력해 주세요."
+                    if self.source == CAPTURE_BOARD_SOURCE
+                    else "지원하는 파일이나 사진이 있는 폴더를 선택해 주세요. 경로를 확인하세요."
+                )
+            else:
+                message = (
+                    f"준비됨 · {self.device.upper()} · 신뢰도 {self.percentage:.0%} · "
+                    f"해상도 {self.imgsz}"
+                )
+            self.set_main_status(message)
 
     def set_processing_state(self, active):
         if active:
@@ -1231,9 +1491,7 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
         self._processing = active
         self.update_action_states()
         if active:
-            self.set_main_status(f"탐지 실행 중 · {self.device.upper()}")
-        else:
-            self.set_main_status(f"준비됨 · 현재 장치: {self.device.upper()}")
+            self.set_main_status(f"탐지 실행 중 · {self.device.upper()}", "working")
 
     def _detection_output_folder_is_ready(self):
         try:
@@ -1271,7 +1529,7 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
         self.close()
 
     def closeEvent(self, event):
-        if self._close_after_worker:
+        if self._close_after_worker or self._close_after_gps:
             event.ignore()
             return
 
@@ -1280,7 +1538,7 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
                 event.ignore()
                 return
             self._close_requested = True
-        if self.worker is not None and self.worker.isRunning():
+        if self.worker is not None:
             self._close_after_worker = True
             if not self._cancel_requested:
                 self._cancel_requested = True
@@ -1290,6 +1548,14 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
                 self.progress_dialog.mark_cancelling(
                     "종료 요청됨 — 현재 처리를 마친 뒤 안전하게 종료합니다…"
                 )
+            event.ignore()
+            return
+
+        if self._gps_worker is not None:
+            self._close_after_gps = True
+            self._gps_worker.requestInterruption()
+            if self.progress_dialog is not None:
+                self.progress_dialog.mark_cancelling("GPS 분석을 정리한 뒤 종료합니다…")
             event.ignore()
             return
 
@@ -1449,6 +1715,13 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
     @Slot()
     def cancel_detection(self):
         """Request cooperative cancellation without reporting immediate completion."""
+        if self._gps_worker is not None:
+            self._cancel_requested = True
+            self._gps_worker.requestInterruption()
+            if self.progress_dialog is not None:
+                self.progress_dialog.mark_cancelling("GPS 분석 취소 요청됨 · 현재 사진 확인을 마치는 중…")
+            self.set_main_status("GPS 분석 취소 요청됨", "warning")
+            return
         if (
             not self._cancel_requested
             and self.worker is not None
@@ -1459,7 +1732,7 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
             self.worker.stop()
             if self.progress_dialog is not None:
                 self.progress_dialog.mark_cancelling()
-            self.set_main_status("취소 요청됨 · 현재 처리를 마치는 중")
+            self.set_main_status("취소 요청됨 · 현재 처리를 마치는 중", "warning")
 
     def confirm_exit(self):
         reply = QMessageBox.question(
@@ -1478,7 +1751,7 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
             self.file_count = 0
             self.lineEdit_juso.clear()
             self.juso = None
-            self.label_5.setText("3. 파일 또는 폴더")
+            self.label_5.setText("3. 파일 또는 폴더(&P)")
             self.lineEdit_juso.setPlaceholderText("탐지할 파일 또는 폴더 경로를 선택하세요")
             self.close_preview_window()
             self.update_action_states()
@@ -1491,7 +1764,7 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
             self.juso = None
 
         if self.source == CAPTURE_BOARD_SOURCE:
-            self.label_5.setText("3. 장치 번호")
+            self.label_5.setText("3. 장치 번호(&P)")
             self.lineEdit_juso.setPlaceholderText(
                 "캡처 장치 번호를 입력하세요. 비우면 0번 장치를 사용합니다."
             )
@@ -1499,16 +1772,15 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
                 "캡처 장치 번호를 입력한 뒤 탐지 시작을 누르면 미리보기 새창이 열립니다."
             )
         elif self.source == VIDEO_FILE_SOURCE:
-            self.label_5.setText("3. 영상 파일")
+            self.label_5.setText("3. 영상 파일(&P)")
             self.lineEdit_juso.setPlaceholderText("탐지할 영상 파일 하나를 선택하세요")
             self.reset_preview("영상 파일 탐지를 시작하면 미리보기 새창이 열립니다.")
         else:
-            self.label_5.setText("3. 파일 또는 폴더")
+            self.label_5.setText("3. 파일 또는 폴더(&P)")
             self.lineEdit_juso.setPlaceholderText("탐지할 파일 또는 폴더 경로를 선택하세요")
             self.reset_preview("실시간 입력을 시작하면 미리보기 새창이 열립니다.")
             self.close_preview_window()
         self.update_action_states()
-        self.set_main_status("입력 경로와 탐지 모델을 확인해 주세요")
 
     def update_datasize(self, index):
         selection = self.comboBox_data.itemText(index)
@@ -1583,6 +1855,10 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
             selected_device = "cpu"
 
         self.device = selected_device
+        if selection in device_options and device_options[selection] != selected_device:
+            blocked = self.comboBox_device.blockSignals(True)
+            self.comboBox_device.setCurrentText("CPU")
+            self.comboBox_device.blockSignals(blocked)
         automatic = selection in {"자동", "사용장치"}
         prefix = "자동 감지 장치" if automatic else "선택 장치"
         self.set_main_status(f"{prefix}: {self.device.upper()}")
@@ -1771,6 +2047,8 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
         self._cancel_requested = False
         self.worker = DetectionWorker(params)
         self.worker.progress_signal.connect(self.update_progress)
+        if hasattr(self.worker, "stage_signal"):
+            self.worker.stage_signal.connect(self.update_stage_progress)
         self.worker.error_signal.connect(self.handle_error)
         self.worker.finished_signal.connect(self.on_detection_finished)
         self.worker.log_signal.connect(self.log_message)
@@ -1815,6 +2093,13 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
         if self.progress_dialog is not None:
             self.progress_dialog.setValue(value)
             self.progress_dialog.setLabelText(message)
+
+    @Slot(str, int, int)
+    def update_stage_progress(self, message, value, maximum):
+        if self.progress_dialog is not None:
+            self.progress_dialog.set_stage_progress(message, value, maximum)
+        if not self._cancel_requested:
+            self.set_main_status(message, "working")
 
     @Slot(str)
     def handle_error(self, error_msg):
@@ -1870,15 +2155,17 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
         """Present a result after native thread completion and resource release."""
         status = result.get("status", DETECTION_STATUS_COMPLETED)
         if status == DETECTION_STATUS_CANCELLED:
-            self.set_main_status("탐지 작업이 취소되었습니다")
+            self.set_main_status("탐지 작업이 취소되었습니다", "warning")
+            message = (
+                "작업이 취소되었습니다.\n\n"
+                f"취소 전 처리량: {result.get('processed_count', 0)}\n"
+                f"정상 보존된 결과 파일: {len(result.get('output_files', []))}개"
+            )
+            if result.get("errors"):
+                message += "\n처리 오류:\n" + "\n".join(result["errors"])
+            self.remember_detection_result(result, message)
             QMessageBox.information(
-                self,
-                "AI 객체 탐지 취소",
-                (
-                    "작업이 취소되었습니다.\n\n"
-                    f"취소 전 처리량: {result.get('processed_count', 0)}\n"
-                    f"정상 보존된 결과 파일: {len(result.get('output_files', []))}개"
-                ),
+                self, "AI 객체 탐지 취소", message,
             )
             return
 
@@ -1888,7 +2175,11 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
             DETECTION_STATUS_FAILED: "탐지 작업이 실패했습니다",
             DETECTION_STATUS_DISCONNECTED: "외부 영상 입력 연결이 끊겼습니다",
         }
-        self.set_main_status(status_messages.get(status, "탐지 작업이 종료되었습니다"))
+        state = "error" if status == DETECTION_STATUS_FAILED else (
+            "warning" if status in {DETECTION_STATUS_PARTIAL, DETECTION_STATUS_DISCONNECTED}
+            else "ready"
+        )
+        self.set_main_status(status_messages.get(status, "탐지 작업이 종료되었습니다"), state)
         self.display_results_new(result)
 
         original_files = result.get("original_files", [])
@@ -1909,10 +2200,7 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
                 QMessageBox.No,
             )
             if reply == QMessageBox.Yes:
-                gps2.process_image_paths(
-                    original_files,
-                    output_directory=result.get("output_folder"),
-                )
+                self.start_gps_mapping(original_files, result.get("output_folder"))
 
         self.memory_monitor.log_memory_usage(f"작업 종료({status})")
 
@@ -1999,6 +2287,13 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
             message += f"\n\n주의 사항: {len(warnings)}개"
             for warning in warnings[:3]:
                 message += f"\n- {warning}"
+
+        full_message = message
+        if len(errors) > 3:
+            full_message += "\n\n[나머지 오류]\n" + "\n".join(errors[3:])
+        if len(warnings) > 3:
+            full_message += "\n\n[나머지 주의 사항]\n" + "\n".join(warnings[3:])
+        self.remember_detection_result(result, full_message)
 
         if status == DETECTION_STATUS_FAILED:
             QMessageBox.critical(self, "AI 객체 탐지 실패", message)

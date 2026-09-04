@@ -6,6 +6,7 @@
 ################################################################################
 
 import sys
+from pathlib import Path
 
 from PySide6.QtCore import QSize, Qt
 from PySide6.QtGui import QKeySequence, QShortcut
@@ -25,6 +26,7 @@ from PySide6.QtWidgets import (
     QScrollArea,
     QSizePolicy,
     QTabWidget,
+    QTextBrowser,
     QVBoxLayout,
     QWidget,
 )
@@ -33,6 +35,15 @@ if __package__:
     from .version import CURRENT_RELEASE, format_gui_changelog
 else:  # `python mypackage/modern_gui_fixed.py` direct execution compatibility
     from version import CURRENT_RELEASE, format_gui_changelog
+
+
+class DeliberateComboBox(QComboBox):
+    """Keep page scrolling from silently changing inference settings."""
+
+    def wheelEvent(self, event):
+        # An open popup receives wheel events in its own item view. Events on
+        # the closed field belong to the surrounding scroll area.
+        event.ignore()
 
 
 class ModernUi_MainWindow(object):
@@ -61,8 +72,8 @@ class ModernUi_MainWindow(object):
         self.scrollAreaWidgetContents = QWidget()
         self.scrollAreaWidgetContents.setObjectName("scrollContent")
         self.main_layout = QVBoxLayout(self.scrollAreaWidgetContents)
-        self.main_layout.setContentsMargins(20, 20, 20, 18)
-        self.main_layout.setSpacing(16)
+        self.main_layout.setContentsMargins(18, 16, 18, 16)
+        self.main_layout.setSpacing(14)
 
         self.scrollArea.setWidget(self.scrollAreaWidgetContents)
         self.root_layout.addWidget(self.scrollArea)
@@ -70,9 +81,9 @@ class ModernUi_MainWindow(object):
         self._create_widgets()
         self._build_header()
         self._build_settings_card()
-        self._build_action_row()
         self._build_info_area()
         self._build_footer()
+        self._build_action_row()
 
         self.retranslateUi(MainWindow)
         self._configure_accessibility(MainWindow)
@@ -87,13 +98,13 @@ class ModernUi_MainWindow(object):
 
         self.label_3 = QLabel("1. 입력 소스(&S)")
         self.label_3.setObjectName("label_3")
-        self.comboBox_source = QComboBox()
+        self.comboBox_source = DeliberateComboBox()
         self.comboBox_source.setObjectName("comboBox_source")
         self.comboBox_source.addItems(["선택하세요", "외부영상(캡처보드)", "사진", "영상"])
 
         self.label_4 = QLabel("2. 탐지 모델(&M)")
         self.label_4.setObjectName("label_4")
-        self.comboBox_data = QComboBox()
+        self.comboBox_data = DeliberateComboBox()
         self.comboBox_data.setObjectName("comboBox_data")
         self.comboBox_data.addItems(
             [
@@ -139,17 +150,17 @@ class ModernUi_MainWindow(object):
         self.label_7 = QLabel("4. 실행 옵션(&O)")
         self.label_7.setObjectName("label_7")
 
-        self.comboBox_percentage = QComboBox()
+        self.comboBox_percentage = DeliberateComboBox()
         self.comboBox_percentage.setObjectName("comboBox_percentage")
         self.comboBox_percentage.addItems(["5%", "10%(기본값)", "15%", "20%", "30%", "50%", "80%"])
         self.comboBox_percentage.setCurrentText("10%(기본값)")
 
-        self.comboBox_device = QComboBox()
+        self.comboBox_device = DeliberateComboBox()
         self.comboBox_device.setObjectName("comboBox_device")
         self.comboBox_device.addItems(["자동", "CPU", "GPU", "MPS"])
         self.comboBox_device.setCurrentText("자동")
 
-        self.comboBox_imgsz = QComboBox()
+        self.comboBox_imgsz = DeliberateComboBox()
         self.comboBox_imgsz.setObjectName("comboBox_imgsz")
         self.comboBox_imgsz.addItems(
             ["640", "1080", "1280", "1680", "1920(기본값)", "3000", "4000(*)"]
@@ -158,6 +169,10 @@ class ModernUi_MainWindow(object):
 
         self.label_8 = QLabel("기본값: 신뢰도 10%, 장치 자동(CUDA/MPS/CPU), 해상도 1920")
         self.label_8.setObjectName("label_8")
+        self.label_8.setWordWrap(True)
+        self.model_hint = QLabel("큰 모델은 더 많은 처리 시간과 메모리가 필요합니다.")
+        self.model_hint.setObjectName("model_hint")
+        self.model_hint.setWordWrap(True)
 
         self.label_10 = QLabel("5. 탐지 대상(&T)")
         self.label_10.setObjectName("label_10")
@@ -207,7 +222,9 @@ class ModernUi_MainWindow(object):
 
         self.label_online_notice = QLabel("온라인 소식")
         self.label_online_notice.setObjectName("label_online_notice")
-        self.plainTextEdit_online_notice = QPlainTextEdit()
+        self.plainTextEdit_online_notice = QTextBrowser()
+        self.plainTextEdit_online_notice.setOpenLinks(False)
+        self.plainTextEdit_online_notice.setOpenExternalLinks(False)
         self.plainTextEdit_online_notice.setObjectName("plainTextEdit_online_notice")
         self.plainTextEdit_online_notice.setReadOnly(True)
         self.plainTextEdit_online_notice.setSizePolicy(
@@ -223,7 +240,7 @@ class ModernUi_MainWindow(object):
         self.headerCard.setObjectName("headerCard")
 
         header_layout = QVBoxLayout(self.headerCard)
-        header_layout.setContentsMargins(24, 22, 24, 20)
+        header_layout.setContentsMargins(20, 16, 20, 16)
         header_layout.setSpacing(8)
 
         header_top = QHBoxLayout()
@@ -255,16 +272,20 @@ class ModernUi_MainWindow(object):
         self.settings_card.setObjectName("settings_card")
 
         settings_layout = QGridLayout(self.settings_card)
-        settings_layout.setContentsMargins(22, 22, 22, 22)
+        settings_layout.setContentsMargins(18, 18, 18, 18)
         settings_layout.setHorizontalSpacing(16)
-        settings_layout.setVerticalSpacing(18)
+        settings_layout.setVerticalSpacing(12)
         settings_layout.setColumnStretch(1, 1)
 
         settings_layout.addWidget(self.label_3, 0, 0)
         settings_layout.addWidget(self.comboBox_source, 0, 1)
 
         settings_layout.addWidget(self.label_4, 1, 0)
-        settings_layout.addWidget(self.comboBox_data, 1, 1)
+        model_column = QVBoxLayout()
+        model_column.setSpacing(6)
+        model_column.addWidget(self.comboBox_data)
+        model_column.addWidget(self.model_hint)
+        settings_layout.addLayout(model_column, 1, 1)
 
         path_row = QHBoxLayout()
         path_row.setSpacing(8)
@@ -276,9 +297,19 @@ class ModernUi_MainWindow(object):
 
         option_row = QHBoxLayout()
         option_row.setSpacing(8)
-        option_row.addWidget(self.comboBox_percentage, 1)
-        option_row.addWidget(self.comboBox_device, 1)
-        option_row.addWidget(self.comboBox_imgsz, 1)
+        for title, combo in (
+            ("최소 신뢰도", self.comboBox_percentage),
+            ("실행 장치", self.comboBox_device),
+            ("분석 해상도", self.comboBox_imgsz),
+        ):
+            column = QVBoxLayout()
+            column.setSpacing(6)
+            caption = QLabel(title)
+            caption.setObjectName("option_caption")
+            caption.setBuddy(combo)
+            column.addWidget(caption)
+            column.addWidget(combo)
+            option_row.addLayout(column, 1)
         settings_layout.addWidget(self.label_7, 3, 0)
         settings_layout.addLayout(option_row, 3, 1)
 
@@ -298,18 +329,52 @@ class ModernUi_MainWindow(object):
         self.main_layout.addWidget(self.settings_card)
 
     def _build_action_row(self):
+        self.action_panel = QFrame()
+        self.action_panel.setObjectName("action_panel")
+        panel_layout = QVBoxLayout(self.action_panel)
+        panel_layout.setContentsMargins(18, 10, 18, 12)
+        panel_layout.setSpacing(8)
+        panel_layout.addWidget(self.status_label)
         action_layout = QHBoxLayout()
         action_layout.setSpacing(12)
         action_layout.addWidget(self.pushButton_enter, 1)
-        action_layout.addWidget(self.pushButton_close, 1)
-        self.main_layout.addLayout(action_layout)
-        self.main_layout.addWidget(self.status_label)
+        action_layout.addWidget(self.pushButton_close)
+        panel_layout.addLayout(action_layout)
+        self.root_layout.addWidget(self.action_panel)
 
     def _build_info_area(self):
         self.infoTabs = QTabWidget()
         self.infoTabs.setObjectName("infoTabs")
         self.infoTabs.setDocumentMode(True)
         self.infoTabs.setMinimumHeight(230)
+
+        self.resultCard = QFrame()
+        self.resultCard.setObjectName("resultCard")
+        result_layout = QVBoxLayout(self.resultCard)
+        result_layout.setContentsMargins(14, 14, 14, 14)
+        self.result_summary = QPlainTextEdit()
+        self.result_summary.setReadOnly(True)
+        self.result_summary.setMinimumHeight(180)
+        self.result_summary.setAccessibleName("마지막 작업 결과와 전체 오류 목록")
+        self.result_summary.setPlainText(
+            "탐지를 마치면 이곳에 결과와 전체 오류 목록이 남습니다.\n"
+            "사진은 원본과 탐지본을 비교하고, 저장 폴더를 바로 열 수 있습니다."
+        )
+        result_layout.addWidget(self.result_summary)
+        self.result_files_combo = DeliberateComboBox()
+        self.result_files_combo.setAccessibleName("확인할 결과 파일")
+        self.result_files_combo.setEnabled(False)
+        result_layout.addWidget(self.result_files_combo)
+        result_actions = QHBoxLayout()
+        self.open_result_button = QPushButton("결과 열기")
+        self.compare_result_button = QPushButton("원본과 비교")
+        self.open_output_button = QPushButton("저장 폴더 열기")
+        for button in (
+            self.open_result_button, self.compare_result_button, self.open_output_button
+        ):
+            button.setEnabled(False)
+            result_actions.addWidget(button)
+        result_layout.addLayout(result_actions)
 
         self.infoCardHowTo = QFrame()
         self.infoCardHowTo.setObjectName("infoCardHowTo")
@@ -336,6 +401,7 @@ class ModernUi_MainWindow(object):
         online_notice_layout.addWidget(self.plainTextEdit_online_notice)
 
         self.infoTabs.addTab(self.infoCardHowTo, "사용 방법")
+        self.result_tab_index = self.infoTabs.addTab(self.resultCard, "작업 결과")
         self.infoTabs.addTab(self.infoCardDesc, "프로그램 안내")
         self.online_notice_tab_index = self.infoTabs.addTab(
             self.infoCardOnlineNotice, "온라인 소식"
@@ -350,19 +416,24 @@ class ModernUi_MainWindow(object):
     def retranslateUi(self, MainWindow):
         self.plainTextEdit_2.setPlainText(
             "1. 입력 소스에서 외부영상, 사진, 영상 중 하나를 선택합니다.\n\n"
-            "2. 탐지 모델은 V26 또는 V11 계열 중 목적에 맞는 항목을 선택합니다. "
-            "일반적으로는 최대(추천) 모델을 먼저 사용하면 됩니다.\n\n"
+            "2. 탐지 모델을 선택합니다. 최대 모델은 시간과 메모리를 많이 사용합니다. "
+            "처리가 느리면 작은 모델과 낮은 분석 해상도를 직접 선택할 수 있습니다.\n\n"
             "3. 사진/영상은 파일 또는 폴더를 선택하고, "
             "외부영상(캡처보드)은 장치 번호를 입력합니다. "
             "비워두면 0번 장치를 사용합니다.\n\n"
-            "4. 신뢰도, 장치, 해상도를 조정한 뒤 탐지 시작 버튼을 눌러 실행합니다."
+            "4. 최소 신뢰도, 실행 장치, 분석 해상도를 확인하고 탐지 시작을 누릅니다. "
+            "신뢰도가 낮으면 후보가 늘지만 오탐도 늘 수 있습니다.\n\n"
+            "5. 진행 창에서 단계와 경과시간을 확인합니다. Esc도 취소 요청으로 처리됩니다.\n\n"
+            "6. 작업 결과 탭에서 전체 오류·저장 파일을 다시 확인합니다. "
+            "사진은 원본과 비교할 수 있습니다. 이 요약은 앱을 종료하면 지워집니다."
         )
 
         self.plainTextEdit.setPlainText(
             f"{format_gui_changelog()}\n\n"
             "[참고]\n"
             "- 실행 중 중단은 진행 창의 취소 버튼 또는 미리보기 창 닫기로 처리할 수 있습니다.\n"
-            "- CUDA 사용 가능 여부에 따라 GPU 또는 CPU가 자동 적용됩니다.\n\n"
+            "- 자동 장치는 CUDA, Apple MPS, CPU 순서로 선택됩니다.\n"
+            "- 탐지 결과는 후보 표시이며 원본과 함께 확인해야 합니다.\n\n"
             "[문의]\n"
             "tenmoo@naver.com"
         )
@@ -504,6 +575,11 @@ class ModernUi_MainWindow(object):
             border: none;
         }
 
+        QFrame#action_panel {
+            background: #fffdf9;
+            border-top: 1px solid #d9cbb8;
+        }
+
         QFrame#headerCard {
             background: qlineargradient(
                 spread:pad, x1:0, y1:0, x2:1, y2:1,
@@ -514,7 +590,7 @@ class ModernUi_MainWindow(object):
 
         QLabel#label {
             color: #f8fafc;
-            font-size: 28px;
+            font-size: 25px;
             font-weight: 800;
             letter-spacing: 0.5px;
         }
@@ -533,7 +609,7 @@ class ModernUi_MainWindow(object):
         }
 
         QFrame#settings_card, QFrame#infoCardHowTo, QFrame#infoCardDesc,
-        QFrame#infoCardOnlineNotice {
+        QFrame#infoCardOnlineNotice, QFrame#resultCard {
             background: #fffdf9;
             border: 1px solid #e8dccb;
             border-radius: 18px;
@@ -546,10 +622,16 @@ class ModernUi_MainWindow(object):
             font-weight: 700;
         }
 
-        QLabel#label_8 {
+        QLabel#label_8, QLabel#model_hint {
             color: #6b7280;
-            font-size: 11px;
+            font-size: 12px;
             padding-left: 2px;
+        }
+
+        QLabel#option_caption {
+            color: #374151;
+            font-size: 12px;
+            font-weight: 600;
         }
 
         QComboBox, QLineEdit {
@@ -559,7 +641,7 @@ class ModernUi_MainWindow(object):
             border-radius: 12px;
             background: #ffffff;
             color: #1f2937;
-            font-size: 12px;
+            font-size: 13px;
         }
 
         QComboBox:hover, QLineEdit:hover {
@@ -574,6 +656,12 @@ class ModernUi_MainWindow(object):
         QComboBox::drop-down {
             width: 28px;
             border: none;
+        }
+
+        QComboBox::down-arrow {
+            image: url("DROPDOWN_ARROW");
+            width: 12px;
+            height: 8px;
         }
 
         QPushButton#pushButton_search, QPushButton#pushButton_search_2,
@@ -647,6 +735,19 @@ class ModernUi_MainWindow(object):
             padding: 0 18px;
         }
 
+        QFrame#resultCard QPushButton {
+            min-height: 38px;
+            padding: 0 10px;
+            border: 1px solid #c1d2ce;
+            border-radius: 8px;
+            color: #0f3d3a;
+            background: #eef6f3;
+            font-size: 12px;
+        }
+
+        QFrame#resultCard QPushButton:disabled { color: #6b7280; background: #e5e7eb; }
+        QFrame#resultCard QPushButton:focus { border: 2px solid #0f766e; }
+
         QPushButton#pushButton_enter {
             background: #0f766e;
             color: #ffffff;
@@ -694,6 +795,16 @@ class ModernUi_MainWindow(object):
             font-weight: 700;
         }
 
+        QLabel#status_label[state="error"] {
+            background: #fff1f2; color: #9f1239; border-color: #fda4af;
+        }
+        QLabel#status_label[state="warning"] {
+            background: #fffbeb; color: #92400e; border-color: #fcd34d;
+        }
+        QLabel#status_label[state="working"] {
+            background: #eff6ff; color: #1e40af; border-color: #bfdbfe;
+        }
+
         QTabWidget#infoTabs::pane {
             border: 1px solid #e8dccb;
             border-radius: 12px;
@@ -724,12 +835,12 @@ class ModernUi_MainWindow(object):
             border: 2px solid #0f766e;
         }
 
-        QPlainTextEdit {
+        QPlainTextEdit, QTextBrowser {
             border: 1px solid #eadfce;
             border-radius: 12px;
             background: #fffaf4;
             color: #374151;
-            font-size: 11px;
+            font-size: 13px;
             line-height: 1.55;
             padding: 10px;
         }
@@ -757,7 +868,8 @@ class ModernUi_MainWindow(object):
             background: #ba9c7d;
         }
         """
-        MainWindow.setStyleSheet(style)
+        arrow_path = Path(__file__).with_name("icons") / "chevron-down.svg"
+        MainWindow.setStyleSheet(style.replace("DROPDOWN_ARROW", arrow_path.as_posix()))
 
 
 if __name__ == "__main__":

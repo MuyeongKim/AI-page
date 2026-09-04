@@ -124,8 +124,11 @@ def show_message(title, message, icon=QMessageBox.Icon.Information):
 
 
 def version_to_tuple(version):
-    """버전을 숫자 튜플로 변환한다."""
-    return tuple(map(int, version.split(".")))
+    """YY.MM.DD와 YY.MMDD 버전을 같은 날짜 순서로 비교한다."""
+    parts = version.split(".")
+    if len(parts) == 2 and len(parts[1]) == 4:
+        parts = [parts[0], parts[1][:2], parts[1][2:]]
+    return tuple(map(int, parts))
 
 
 def main():

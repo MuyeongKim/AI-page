@@ -1,5 +1,9 @@
 # 랜딩페이지 사진 출처
 
+`site/public/images/current-app.png`는 현재 저장소의 데스크톱 GUI를 직접 실행해 캡처한
+프로그램 화면입니다. 현재 사용 순서를 설명하는 용도로 쓰며, 아래의 이전 시연 기록과
+구분해 표시합니다. 화면 자체는 탐지 성능을 보증하지 않습니다.
+
 `site/public/images/field/`의 사진은 사용자가 기존에 운영하던 공개 Gamma 페이지
 <https://ai--gwxed5y.gamma.site/>에서 2026-08-17에 가져온 기존 자산입니다.
 

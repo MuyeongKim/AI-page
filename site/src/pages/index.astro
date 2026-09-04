@@ -203,6 +203,7 @@ const faqs = [
             <span>{releaseFeed.release_date}</span>
             <span>AGPL-3.0</span>
           </div>
+          <a class="text-link" href="#current-app">현재 프로그램 화면과 사용 순서 보기 →</a>
         </div>
 
         <div class="product-preview">
@@ -272,6 +273,47 @@ const faqs = [
               </article>
             ))
           }
+        </div>
+      </div>
+    </section>
+
+    <section class="section current-app-section" id="current-app" aria-labelledby="current-app-title">
+      <div class="container current-app-layout">
+        <figure class="field-card">
+          <a class="current-app-screen" href="/images/current-app.png" target="_blank" rel="noopener noreferrer" aria-label="현재 프로그램 화면 원본 크게 보기, 새 탭">
+            <img
+              src="/images/current-app.png"
+              alt="현재 객체 탐지 프로그램에서 파일 선택, 탐지 설정, 실행 상태와 작업 결과 탭을 보여주는 화면"
+              width="900"
+              height="900"
+              loading="lazy"
+              decoding="async"
+            />
+          </a>
+          <figcaption>
+            <span>현재 소스 버전 {versionLabel}</span>
+            <strong><a href="/images/current-app.png" target="_blank" rel="noopener noreferrer" aria-label="현재 프로그램 화면 원본 크게 보기, 새 탭">프로그램 화면 크게 보기 ↗</a></strong>
+            <small>현재 소스 코드로 실행한 설정 화면이며 sample.jpg는 예시 입력명입니다. 운영체제에 따라 글꼴과 창 모양은 다를 수 있습니다.</small>
+          </figcaption>
+        </figure>
+        <div class="current-app-copy">
+          <p class="section-kicker">PROGRAM SCREEN</p>
+          <h2 id="current-app-title">화면에서 바로 이어지는<br />실행과 결과 확인</h2>
+          <p>처음 사용할 때는 짧은 영상이나 몇 장의 사진으로 설정과 저장 결과를 먼저 확인하세요.</p>
+          <ol class="current-app-steps">
+            <li>
+              <strong>입력과 탐지 설정 확인</strong>
+              <p>사진·영상 또는 캡처보드를 선택하고 사람·차량, 신뢰도와 실행 장치를 확인합니다.</p>
+            </li>
+            <li>
+              <strong>탐지 실행과 진행 상태 확인</strong>
+              <p>미리보기와 진행 상태를 확인합니다. 중단이 필요하면 취소 버튼을 사용하고 처리 종료를 기다립니다.</p>
+            </li>
+            <li>
+              <strong>저장된 결과를 원본과 비교</strong>
+              <p>완료·부분 완료·실패 안내를 확인한 뒤 결과 폴더를 열어 원본과 비교합니다. 캡처보드는 미리보기와 탐지 수를 제공하며 영상 저장은 지원하지 않습니다.</p>
+            </li>
+          </ol>
         </div>
       </div>
     </section>

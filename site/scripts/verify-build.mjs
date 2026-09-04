@@ -40,6 +40,10 @@ const fieldPhotoNames = [
 const fieldPhotos = await Promise.all(
   fieldPhotoNames.map((name) => stat(resolve(siteRoot, "dist/images/field", name))),
 );
+const currentAppScreen = await stat(resolve(siteRoot, "dist/images/current-app.png"));
+if (currentAppScreen.size === 0 || !html.includes('/images/current-app.png')) {
+  throw new Error("현재 프로그램 화면이 빌드 결과에 포함되지 않았습니다.");
+}
 
 const htmlValidate = new HtmlValidate();
 const adminValidation = await htmlValidate.validateString(adminHtml);

@@ -1,87 +1,120 @@
-import importlib
-import pathlib
-import sys
-import types
-from typing import ClassVar
+from unittest.mock import Mock
+
+import pytest
+from PySide6.QtWidgets import QDialog, QInputDialog, QLineEdit, QMessageBox
+
+from mypackage import start
 
 
-def test_prompt_for_key_uses_dialog_instance_in_password_mode(monkeypatch):
-    start, input_dialog = load_start_with_qt_stubs(monkeypatch)
+@pytest.mark.parametrize(
+    ("dialog_result", "expected_accepted"),
+    [(QDialog.DialogCode.Accepted, True), (QDialog.DialogCode.Rejected, False)],
+)
+def test_prompt_for_key_uses_dialog_instance_in_password_mode(
+    qt_application, monkeypatch, dialog_result, expected_accepted
+):
+    dialog = QInputDialog()
+    dialog.setTextValue("stayup")
+    dialog.exec = Mock(return_value=dialog_result)
+    monkeypatch.setattr(start, "QInputDialog", lambda: dialog)
+    try:
+        user_key, accepted = start._prompt_for_key("Authentication", "Enter key")
 
-    user_key, accepted = start._prompt_for_key("Authentication", "Enter key")
+        assert user_key == "stayup"
+        assert accepted is expected_accepted
+        assert dialog.windowTitle() == "Authentication"
+        assert dialog.labelText() == "Enter key"
+        assert dialog.textEchoMode() == QLineEdit.EchoMode.Password
+        dialog.exec.assert_called_once_with()
+    finally:
+        dialog.deleteLater()
+        qt_application.processEvents()
 
-    dialog = input_dialog.instances[-1]
-    assert user_key == "stayup"
-    assert accepted is True
-    assert dialog.window_title == "Authentication"
-    assert dialog.label_text == "Enter key"
-    assert dialog.echo_mode == 1
-    assert dialog.exec_calls == 1
+
+@pytest.fixture
+def authentication_dialogs(qt_application, monkeypatch):
+    messages = []
+    dialogs = []
+
+    def create_message_box():
+        dialog = QMessageBox()
+        dialog.exec = Mock(side_effect=lambda: messages.append(dialog.text()) or 0)
+        dialogs.append(dialog)
+        return dialog
+
+    # Replace only this module's factory; other tests keep the real Qt classes.
+    message_boxes = Mock(side_effect=create_message_box)
+    message_boxes.Icon = QMessageBox.Icon
+    message_boxes.StandardButton = QMessageBox.StandardButton
+    message_boxes.information = Mock(
+        side_effect=lambda _parent, _title, text: messages.append(text)
+    )
+    message_boxes.warning = Mock()
+    message_boxes.critical = Mock()
+    monkeypatch.setattr(start, "QMessageBox", message_boxes)
+    monkeypatch.setattr(start, "apply_modern_style", lambda: None)
+    monkeypatch.setattr(start, "get_preferred_device", lambda: "cpu")
+    yield {"warning": message_boxes.warning, "messages": messages}
+    for dialog in dialogs:
+        dialog.deleteLater()
+    qt_application.processEvents()
 
 
-def load_start_with_qt_stubs(monkeypatch):
-    project_root = pathlib.Path(__file__).resolve().parents[1]
-    if str(project_root) not in sys.path:
-        sys.path.insert(0, str(project_root))
+@pytest.mark.parametrize("authenticate", [start.authenticate, start.authenticate_basic])
+def test_empty_confirmation_can_retry_without_consuming_attempts(
+    monkeypatch, authentication_dialogs, authenticate
+):
+    answers = [("", True)] * 4 + [
+        ("wrong-1", True),
+        ("", True),
+        ("wrong-2", True),
+        (start.VALID_KEY, True),
+    ]
+    prompt = Mock(side_effect=answers)
+    monkeypatch.setattr(start, "_prompt_for_key", prompt)
 
-    qtwidgets = types.ModuleType("PySide6.QtWidgets")
+    assert authenticate() is True
+    assert prompt.call_count == len(answers)
+    empty_warnings = [
+        call for call in authentication_dialogs["warning"].call_args_list
+        if call.args[1] == "인증 키 입력"
+    ]
+    assert len(empty_warnings) == 5
 
-    class DummyQApplication:
-        @staticmethod
-        def instance():
-            return None
 
-    class DummyQDialog:
-        class DialogCode:
-            Accepted = 1
+@pytest.mark.parametrize("authenticate", [start.authenticate, start.authenticate_basic])
+def test_explicit_cancel_still_exits(monkeypatch, authentication_dialogs, authenticate):
+    prompt = Mock(return_value=("", False))
+    monkeypatch.setattr(start, "_prompt_for_key", prompt)
 
-    class DummyQInputDialog:
-        instances: ClassVar[list] = []
+    with pytest.raises(SystemExit):
+        authenticate()
+    assert prompt.call_count == 1
 
-        def __init__(self):
-            self.window_title = None
-            self.label_text = None
-            self.echo_mode = None
-            self.exec_calls = 0
-            self.instances.append(self)
 
-        @staticmethod
-        def getText(*args, **kwargs):
-            raise AssertionError("The static QInputDialog.getText() overload must not be used")
+@pytest.mark.parametrize("authenticate", [start.authenticate, start.authenticate_basic])
+def test_three_incorrect_keys_still_exit(
+    monkeypatch, authentication_dialogs, authenticate
+):
+    prompt = Mock(return_value=("incorrect-key", True))
+    monkeypatch.setattr(start, "_prompt_for_key", prompt)
 
-        def setWindowTitle(self, title):
-            self.window_title = title
+    with pytest.raises(SystemExit):
+        authenticate()
+    assert prompt.call_count == start.MAX_ATTEMPTS
 
-        def setLabelText(self, label):
-            self.label_text = label
 
-        def setTextEchoMode(self, echo_mode):
-            self.echo_mode = echo_mode
+@pytest.mark.parametrize("authenticate", [start.authenticate, start.authenticate_basic])
+@pytest.mark.parametrize("selected_device", ["cuda", "mps", "cpu"])
+def test_success_dialog_preserves_current_version_and_selected_device(
+    monkeypatch, authentication_dialogs, authenticate, selected_device
+):
+    monkeypatch.setattr(start, "_prompt_for_key", lambda *args: (start.VALID_KEY, True))
+    monkeypatch.setattr(start, "get_preferred_device", lambda: selected_device)
 
-        def exec(self):
-            self.exec_calls += 1
-            return DummyQDialog.DialogCode.Accepted
+    assert authenticate() is True
 
-        def textValue(self):
-            return "stayup"
-
-    class DummyQLineEdit:
-        class EchoMode:
-            Password = 1
-
-    class DummyMessageBox:
-        pass
-
-    qtwidgets.QApplication = DummyQApplication
-    qtwidgets.QDialog = DummyQDialog
-    qtwidgets.QInputDialog = DummyQInputDialog
-    qtwidgets.QLineEdit = DummyQLineEdit
-    qtwidgets.QMessageBox = DummyMessageBox
-
-    pyside6 = types.ModuleType("PySide6")
-    pyside6.QtWidgets = qtwidgets
-
-    monkeypatch.setitem(sys.modules, "PySide6", pyside6)
-    monkeypatch.setitem(sys.modules, "PySide6.QtWidgets", qtwidgets)
-    monkeypatch.delitem(sys.modules, "mypackage.start", raising=False)
-    return importlib.import_module("mypackage.start"), DummyQInputDialog
+    assert len(authentication_dialogs["messages"]) == 1
+    message = authentication_dialogs["messages"][0]
+    assert start.CURRENT_RELEASE.display_version in message
+    assert start.get_startup_device_message(selected_device) in message

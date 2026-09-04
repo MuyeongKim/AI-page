@@ -13,10 +13,14 @@
 #                               $$$$$$/                    $$/                                #
 #                                                                                             #  
 ###############################################################################################
+from __future__ import annotations
+
 import atexit
+import html
 import os
 import threading
 import webbrowser
+from dataclasses import dataclass
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -40,6 +44,17 @@ MAP_PRIVACY_NOTICE = (
     "지도 HTML에는 정확한 GPS 좌표가 저장되며, 지도를 표시할 때 "
     "OpenStreetMap 타일 서버로 네트워크 요청을 보냅니다."
 )
+
+
+@dataclass(frozen=True)
+class GPSProcessingResult:
+    """Describe GPS coverage without conflating absent and unreadable metadata."""
+
+    location_count: int
+    checked_count: int
+    no_gps_count: int
+    errors: tuple[str, ...]
+    map_path: Path | None
 
 
 class _LocalMapRequestHandler(SimpleHTTPRequestHandler):
@@ -134,7 +149,12 @@ def _open_map_in_browser(output_html):
     output_path = Path(output_html).resolve()
     port = _ensure_local_http_server(output_path)
     url = f"http://127.0.0.1:{port}/{quote(output_path.name)}"
-    webbrowser.open(url)
+    return webbrowser.open(url)
+
+
+def open_map_in_browser(output_html):
+    """Open an already-created map and report whether a browser accepted it."""
+    return _open_map_in_browser(output_html)
 
 
 def _resolve_map_output_path(output_html):
@@ -195,7 +215,14 @@ def extract_gps_data(image_path):
 
     return latitude, longitude
 
-def plot_location_on_map(locations, output_html='map.html', open_browser=True):
+def plot_location_on_map(
+    locations,
+    output_html='map.html',
+    open_browser=True,
+    *,
+    photo_names=None,
+    should_cancel=None,
+):
     """
     Plot GPS locations on a map and save as an HTML file.
 
@@ -213,10 +240,23 @@ def plot_location_on_map(locations, output_html='map.html', open_browser=True):
     m = folium.Map(location=[center_lat, center_lon], zoom_start=15, tiles="OpenStreetMap")
 
     # Add markers for each location
-    for lat, lon in locations:
-        folium.Marker([lat, lon], popup=f"Location: {lat}, {lon}").add_to(m)
+    for index, (lat, lon) in enumerate(locations):
+        popup = f"위도: {lat}<br>경도: {lon}"
+        if photo_names is not None and index < len(photo_names):
+            # Folium embeds popup HTML inside a JavaScript template literal.
+            # Escape that context as well as HTML while retaining readable names.
+            filename = html.escape(Path(photo_names[index]).name, quote=True)
+            for character, entity in (("`", "&#96;"), ("$", "&#36;"), ("\\", "&#92;")):
+                filename = filename.replace(character, entity)
+            popup = f"사진: {filename}<br>{popup}"
+        folium.Marker([lat, lon], popup=popup).add_to(m)
+
+    if len({tuple(location) for location in locations}) > 1:
+        m.fit_bounds(locations, padding=(24, 24), max_zoom=15)
 
     # Save the map to an HTML file
+    if should_cancel is not None and should_cancel():
+        raise InterruptedError("GPS 분석이 취소되었습니다.")
     m.save(str(output_path))
     print(f"Map saved as {output_path}")
 
@@ -256,50 +296,103 @@ def process_image_paths(
     open_browser=True,
     output_directory=None,
 ):
+    """Preserve the legacy integer return value for existing callers."""
+    return process_image_paths_detailed(
+        image_paths,
+        output_html=output_html,
+        open_browser=open_browser,
+        output_directory=output_directory,
+    ).location_count
+
+
+def process_image_paths_detailed(
+    image_paths,
+    output_html="map.html",
+    open_browser=True,
+    output_directory=None,
+    *,
+    should_cancel=None,
+):
     """Extract GPS data from current images, isolating per-file EXIF failures.
 
     Relative output names are stored in DEFAULT_MAP_OUTPUT_DIR. Pass
     output_directory to select an explicit detection or user-data directory.
+    The result separates missing GPS from per-file errors and includes the saved
+    map path. Map creation errors propagate to the caller. An optional cancellation
+    callback raises InterruptedError between files and before the map is saved.
     """
     if isinstance(image_paths, (str, os.PathLike)):
         image_paths = [image_paths]
 
     locations = []
+    photo_names = []
     seen_paths = set()
+    checked_count = 0
+    no_gps_count = 0
+    errors = []
+
+    def check_cancelled():
+        if should_cancel is not None and should_cancel():
+            raise InterruptedError("GPS 분석이 취소되었습니다.")
 
     for image_path in image_paths or []:
+        check_cancelled()
         try:
             path = Path(image_path).expanduser()
             normalized_path = str(path.resolve())
         except (TypeError, ValueError, OSError, RuntimeError):
-            print("올바르지 않은 GPS 분석 경로를 건너뜁니다.")
+            checked_count += 1
+            errors.append("올바르지 않은 GPS 분석 경로를 건너뜁니다.")
             continue
 
         if normalized_path in seen_paths:
             continue
 
         seen_paths.add(normalized_path)
-        if not path.is_file() or path.suffix.lower() not in _IMAGE_EXTENSIONS:
-            continue
+        checked_count += 1
 
         try:
+            if not path.is_file():
+                errors.append(f"{path.name}: 사진 파일을 찾을 수 없습니다.")
+                continue
+            if path.suffix.lower() not in _IMAGE_EXTENSIONS:
+                errors.append(f"{path.name}: 지원하지 않는 사진 형식입니다.")
+                continue
             gps_data = extract_gps_data(path)
         except Exception as error:
-            print(f"GPS 정보를 읽지 못했습니다 ({path.name}): {error}")
+            message = f"GPS 정보를 읽지 못했습니다 ({path.name}): {error}"
+            errors.append(message)
+            print(message)
             continue
 
         if gps_data:
             locations.append(gps_data)
+            photo_names.append(path.name)
+        else:
+            no_gps_count += 1
 
+    check_cancelled()
+    map_path = None
     if locations:
         if output_directory is not None:
             output_html = Path(output_directory).expanduser() / Path(output_html).name
-        plot_location_on_map(locations, output_html=output_html, open_browser=open_browser)
+        map_path = plot_location_on_map(
+            locations,
+            output_html=output_html,
+            open_browser=open_browser,
+            photo_names=photo_names,
+            should_cancel=should_cancel,
+        )
         print(f"탐지된 위치가 지도에 {len(locations)}곳이 표시되었습니다.")
-        return len(locations)
-
-    print("탐지된 위치가 없습니다.")
-    return 0
+    else:
+        print("탐지된 위치가 없습니다.")
+    return GPSProcessingResult(
+        location_count=len(locations),
+        checked_count=checked_count,
+        no_gps_count=no_gps_count,
+        errors=tuple(errors),
+        map_path=map_path,
+    )
 
 def process_images_in_folder(
     folder_path,
