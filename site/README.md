@@ -150,6 +150,12 @@ Get-FileHash C:\path\to\downloaded-file -Algorithm SHA256
 
 ## Vercel 설정
 
+운영 주소는 <https://ai-page-ruddy.vercel.app>입니다. GitHub Pages는 비활성화합니다
+(`Settings → Pages`의 배포 브랜치 `None`). 저장소 루트를 GitHub Pages의 Jekyll로
+빌드하면 Astro 파일을 YAML로 해석해 실패하므로 다시 연결하지 않습니다.
+GitHub Actions의 `랜딩페이지 검사`와 Vercel의 `main` 자동 배포는 계속 사용합니다.
+이 Pages 설정은 저장소 관리 설정이며 파일 커밋만으로 변경되지 않습니다.
+
 1. GitHub의 `MuyeongKim/AI-page` 저장소를 Vercel 프로젝트로 가져옵니다.
 2. Production Branch는 `main`, Root Directory는 `site`로 지정합니다.
 3. Root Directory 설정에서 빌드 시 상위 소스 파일 포함 옵션을 활성화합니다.
@@ -163,5 +169,5 @@ Get-FileHash C:\path\to\downloaded-file -Algorithm SHA256
 가정하지 않습니다. 실제 운영 주소가 확정되기 전 기존 도메인의 DNS를 변경하지 마세요.
 
 공개 페이지는 정적 출력이고 관리자 API만 서버 함수로 실행됩니다. 비밀 환경변수는
-Vercel 서버에서만 사용되며 클라이언트 번들에 포함하지 않습니다. 현재 루트
-`index.html`의 Gamma 이동은 Vercel 검증과 도메인 전환을 마친 뒤 제거합니다.
+Vercel 서버에서만 사용되며 클라이언트 번들에 포함하지 않습니다. 루트 `index.html`의
+Gamma 이동은 이전 배포 자료로 남아 있으며, 현재 Vercel 빌드에서는 사용하지 않습니다.
