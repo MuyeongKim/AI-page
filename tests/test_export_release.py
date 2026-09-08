@@ -36,8 +36,8 @@ def test_current_feed_is_generated_from_current_release_and_marks_download_prepa
     expected = build_release_feed(actual)
 
     assert actual == expected
-    assert actual["version"] == CURRENT_RELEASE.version == "26.0905"
-    assert actual["release_date"] == CURRENT_RELEASE.release_date == "2026-09-05"
+    assert actual["version"] == CURRENT_RELEASE.version == "26.0908"
+    assert actual["release_date"] == CURRENT_RELEASE.release_date == "2026-09-08"
     assert actual["changelog"] == current_release_changelog()
     assert actual["download_url"] is None
     assert actual["download"] == {
@@ -83,7 +83,7 @@ def test_ready_google_drive_download_is_preserved_for_same_release(tmp_path):
     assert feed["download"] == ready_download
 
 
-@pytest.mark.parametrize("old_version", ["26.08.17", "26.08.25", "26.0904"])
+@pytest.mark.parametrize("old_version", ["26.08.17", "26.08.25", "26.0904", "26.0905"])
 def test_old_release_download_is_not_reused_for_new_release(tmp_path, old_version):
     artifact = _write_artifact(tmp_path)
     existing = {

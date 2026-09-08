@@ -6,7 +6,6 @@
 ################################################################################
 
 import sys
-from pathlib import Path
 
 from PySide6.QtCore import QSize, Qt
 from PySide6.QtGui import QKeySequence, QShortcut
@@ -32,8 +31,10 @@ from PySide6.QtWidgets import (
 )
 
 if __package__:
+    from . import resources_rc  # Importing registers bundled Qt resources.
     from .version import CURRENT_RELEASE, format_gui_changelog
 else:  # `python mypackage/modern_gui_fixed.py` direct execution compatibility
+    import resources_rc  # noqa: F401 -- support direct execution of this module
     from version import CURRENT_RELEASE, format_gui_changelog
 
 
@@ -182,10 +183,6 @@ class ModernUi_MainWindow(object):
         self.radioButton_person.setObjectName("radioButton_person")
         self.radioButton_car = QRadioButton("차량만")
         self.radioButton_car.setObjectName("radioButton_car")
-        self.pushButton_open_output_folder = QPushButton("탐지 폴더 열기")
-        self.pushButton_open_output_folder.setObjectName("pushButton_open_output_folder")
-        self.pushButton_open_output_folder.setMinimumWidth(126)
-        self.pushButton_open_output_folder.setEnabled(False)
         self.detection_target_group = QButtonGroup()
         self.detection_target_group.setExclusive(True)
         self.detection_target_group.addButton(self.radioButton_all)
@@ -320,7 +317,6 @@ class ModernUi_MainWindow(object):
         detect_row.addWidget(self.radioButton_all)
         detect_row.addWidget(self.radioButton_person)
         detect_row.addWidget(self.radioButton_car)
-        detect_row.addWidget(self.pushButton_open_output_folder)
         detect_row.addStretch(1)
 
         settings_layout.addWidget(self.label_10, 5, 0, 1, 2)
@@ -513,10 +509,10 @@ class ModernUi_MainWindow(object):
                 "차량만 탐지합니다.",
             ),
             (
-                self.pushButton_open_output_folder,
-                "탐지 폴더 열기",
-                "마지막으로 완료된 객체 탐지의 결과 폴더를 엽니다.",
-                "탐지가 끝나면 결과 폴더를 열 수 있습니다.",
+                self.open_output_button,
+                "저장 폴더 열기",
+                "작업 결과에 표시된 탐지의 저장 폴더를 엽니다.",
+                "이번 탐지의 원본, 탐지 결과와 GPS 지도가 저장된 폴더를 엽니다.",
             ),
             (
                 self.pushButton_enter,
@@ -659,13 +655,12 @@ class ModernUi_MainWindow(object):
         }
 
         QComboBox::down-arrow {
-            image: url("DROPDOWN_ARROW");
+            image: url(":/mypackage/icons/chevron-down.svg");
             width: 12px;
             height: 8px;
         }
 
-        QPushButton#pushButton_search, QPushButton#pushButton_search_2,
-        QPushButton#pushButton_open_output_folder {
+        QPushButton#pushButton_search, QPushButton#pushButton_search_2 {
             min-height: 42px;
             padding: 0 16px;
             border: 1px solid #d9cbb8;
@@ -676,8 +671,7 @@ class ModernUi_MainWindow(object):
             font-weight: 700;
         }
 
-        QPushButton#pushButton_search:hover, QPushButton#pushButton_search_2:hover,
-        QPushButton#pushButton_open_output_folder:hover {
+        QPushButton#pushButton_search:hover, QPushButton#pushButton_search_2:hover {
             background: #e5d6c3;
             border-color: #cdb89d;
         }
@@ -715,13 +709,11 @@ class ModernUi_MainWindow(object):
             border-color: #0f766e;
         }
 
-        QPushButton#pushButton_search:focus, QPushButton#pushButton_search_2:focus,
-        QPushButton#pushButton_open_output_folder:focus {
+        QPushButton#pushButton_search:focus, QPushButton#pushButton_search_2:focus {
             border: 2px solid #0f766e;
         }
 
-        QPushButton#pushButton_search:disabled, QPushButton#pushButton_search_2:disabled,
-        QPushButton#pushButton_open_output_folder:disabled {
+        QPushButton#pushButton_search:disabled, QPushButton#pushButton_search_2:disabled {
             background: #e5e7eb;
             color: #6b7280;
             border-color: #cbd5e1;
@@ -868,8 +860,7 @@ class ModernUi_MainWindow(object):
             background: #ba9c7d;
         }
         """
-        arrow_path = Path(__file__).with_name("icons") / "chevron-down.svg"
-        MainWindow.setStyleSheet(style.replace("DROPDOWN_ARROW", arrow_path.as_posix()))
+        MainWindow.setStyleSheet(style)
 
 
 if __name__ == "__main__":

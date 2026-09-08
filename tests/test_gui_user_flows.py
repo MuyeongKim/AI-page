@@ -1,5 +1,6 @@
 import os
 import time
+from pathlib import Path
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
@@ -79,6 +80,8 @@ def test_scrolling_does_not_change_threshold_but_keyboard_still_can(window, qapp
 
 
 def test_unavailable_gpu_updates_visible_selection_and_runtime_together(window, monkeypatch):
+    # Also trigger a selection change on hosts where startup already selected GPU.
+    window.comboBox_device.setCurrentText("CPU")
     monkeypatch.setattr(gui.torch.cuda, "is_available", lambda: False)
     window.comboBox_device.setCurrentText("GPU")
     assert window.device == "cpu"
@@ -122,7 +125,7 @@ def test_results_remain_accessible_with_complete_errors_and_photo_comparison(
     opened = []
     monkeypatch.setattr(gui.QDesktopServices, "openUrl", lambda url: opened.append(url) or True)
     window.open_output_button.click()
-    assert opened[0].toLocalFile() == str(tmp_path)
+    assert Path(opened[0].toLocalFile()) == tmp_path
     window.compare_result_button.click()
     qapp.processEvents()
     assert window._comparison_dialog.isVisible()

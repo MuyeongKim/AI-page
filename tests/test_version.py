@@ -20,11 +20,12 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 def test_current_release_drives_version_title_and_gui_changelog():
     changelog = format_gui_changelog()
 
-    assert CURRENT_VERSION == CURRENT_RELEASE.version == "26.0905"
-    assert CURRENT_RELEASE.release_date == "2026-09-05"
-    assert CURRENT_RELEASE.display_version == "V26.0905"
+    assert CURRENT_VERSION == CURRENT_RELEASE.version == "26.0908"
+    assert CURRENT_RELEASE.release_date == "2026-09-08"
+    assert CURRENT_RELEASE.display_version == "V26.0908"
     assert CURRENT_RELEASE.display_version in CURRENT_RELEASE.window_title
-    assert CURRENT_RELEASE.changelog[0].title == "V26.0905 결과 보호와 사용성 개선"
+    assert CURRENT_RELEASE.changelog[0].title == "V26.0908 배포 아이콘과 실행별 결과 폴더 개선"
+    assert "2026.09.08 V26.0908 배포 아이콘과 실행별 결과 폴더 개선" in changelog
     assert "2026.09.05 V26.0905 결과 보호와 사용성 개선" in changelog
     assert "2026.08.25 V26.08.25 시작 환경 자동 설정" in changelog
     assert "인증 성공 안내에 앱 버전과 자동 감지된 추론 장치를 함께 표시" in changelog
@@ -46,11 +47,11 @@ def test_latest_version_feed_matches_local_release_metadata():
 
 def test_release_feed_validation_reports_version_drift():
     mismatched_feed = {
-        "version": "26.0906",
+        "version": "26.0909",
         "release_date": CURRENT_RELEASE.release_date,
     }
 
-    with pytest.raises(ValueError, match=r"version.*26\.0905.*26\.0906"):
+    with pytest.raises(ValueError, match=r"version.*26\.0908.*26\.0909"):
         assert_release_feed_matches_local(mismatched_feed)
 
 

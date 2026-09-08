@@ -1,4 +1,4 @@
-"""Publish completed outputs without collisions between application processes."""
+"""Allocate run folders and publish completed outputs without collisions."""
 
 import os
 import time
@@ -6,6 +6,23 @@ from contextlib import contextmanager
 from pathlib import Path
 
 from PySide6.QtCore import QLockFile
+
+
+def create_run_output_folder(base_folder, started_at=None):
+    """Atomically reserve a timestamped folder, including for simultaneous runs."""
+    base_folder = Path(base_folder)
+    base_folder.mkdir(parents=True, exist_ok=True)
+    timestamp = time.strftime("%Y%m%d_%H%M%S", time.localtime(started_at))
+    suffix = 0
+    while True:
+        name = f"{timestamp}_{suffix}" if suffix else timestamp
+        folder = base_folder / name
+        try:
+            folder.mkdir()
+        except FileExistsError:
+            suffix += 1
+        else:
+            return folder
 
 
 @contextmanager

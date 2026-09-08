@@ -2,6 +2,7 @@ import json
 import os
 import subprocess
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
@@ -20,6 +21,104 @@ class _PhotoResult:
 
     def save(self, filename):
         Path(filename).write_bytes(self.content)
+
+
+def test_run_folders_use_start_time_and_preserve_occupied_names(tmp_path):
+    started_at = output_storage.time.mktime((2026, 9, 8, 14, 30, 25, 0, 0, -1))
+    occupied = tmp_path / "20260908_143025"
+    occupied.mkdir()
+    previous = occupied / "previous.jpg"
+    previous.write_bytes(b"PREVIOUS")
+    occupied_file = tmp_path / "20260908_143025_1"
+    occupied_file.write_bytes(b"OCCUPIED")
+
+    folder = output_storage.create_run_output_folder(tmp_path, started_at=started_at)
+
+    assert folder == tmp_path / "20260908_143025_2"
+    assert folder.is_dir()
+    assert previous.read_bytes() == b"PREVIOUS"
+    assert occupied_file.read_bytes() == b"OCCUPIED"
+
+
+def test_concurrent_runs_allocate_separate_folders(tmp_path):
+    def allocate(_index):
+        return output_storage.create_run_output_folder(tmp_path / "results", started_at=0)
+
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        folders = list(pool.map(allocate, range(16)))
+
+    assert len(set(folders)) == 16
+    assert all(folder.is_dir() and folder.parent == tmp_path / "results" for folder in folders)
+
+
+@pytest.mark.parametrize("source_type", ["사진", gui.VIDEO_FILE_SOURCE])
+def test_each_detection_run_saves_into_its_own_reported_folder(
+    tmp_path, monkeypatch, source_type
+):
+    source = tmp_path / ("source.jpg" if source_type == "사진" else "source.mp4")
+    source.write_bytes(b"ORIGINAL")
+    root = tmp_path / "detected_files"
+    root.mkdir()
+    previous = root / "previous.jpg"
+    previous.write_bytes(b"PREVIOUS")
+    monkeypatch.setattr(gui, "DETECTED_OUTPUT_DIR", root)
+    monkeypatch.setattr(gui, "clear_torch_cache", lambda _device=None: None)
+
+    class PhotoResult(_PhotoResult):
+        def __init__(self):
+            super().__init__()
+            self.names = {0: "person"}
+            self.boxes = type("Boxes", (), {"cls": [0]})()
+
+    monkeypatch.setattr(gui, "YOLO", lambda _source: lambda *_args, **_kwargs: [PhotoResult()])
+    results = []
+    for _ in range(2):
+        worker = gui.DetectionWorker(
+            {"source": source_type, "juso": [str(source)], "datasize": "fake.pt", "file_count": 1}
+        )
+        if source_type == gui.VIDEO_FILE_SOURCE:
+            def process_video(folder, worker=worker):
+                output = Path(folder) / "detected_source.mp4"
+                output.write_bytes(b"VIDEO")
+                worker.output_files.append(str(output))
+                return {"had_detection": True, "source": str(source), "status": "completed"}
+
+            monkeypatch.setattr(worker, "process_video", process_video)
+        worker.finished_signal.connect(results.append)
+        worker.run()
+
+    folders = [Path(result["output_folder"]) for result in results]
+    assert all(result["status"] == "completed" for result in results)
+    assert folders[0] != folders[1]
+    assert all(folder.parent == root for folder in folders)
+    for result, folder in zip(results, folders):
+        assert str(folder) in result["folder_status"]
+        assert all(Path(path).parent == folder for path in result["output_files"])
+        assert Path(result["output_files"][0]).stem == "detected_source"
+        if source_type == "사진":
+            assert Path(result["original_files"][0]).parent == folder
+            assert Path(result["original_files"][0]).read_bytes() == b"ORIGINAL"
+    assert previous.read_bytes() == b"PREVIOUS"
+
+
+def test_uncreatable_run_folder_emits_failure_without_exposing_previous_results(
+    tmp_path, monkeypatch
+):
+    root = tmp_path / "not_a_folder"
+    root.write_bytes(b"PREVIOUS")
+    monkeypatch.setattr(gui, "DETECTED_OUTPUT_DIR", root)
+    monkeypatch.setattr(gui, "YOLO", lambda _source: object())
+    monkeypatch.setattr(gui, "clear_torch_cache", lambda _device=None: None)
+    worker = gui.DetectionWorker({"source": "사진", "juso": [], "datasize": "fake.pt"})
+    results = []
+    worker.finished_signal.connect(results.append)
+
+    worker.run()
+
+    assert results[0]["status"] == "failed"
+    assert results[0]["output_folder"] is None
+    assert results[0]["errors"]
+    assert root.read_bytes() == b"PREVIOUS"
 
 
 def test_failed_original_copy_leaves_no_final_or_partial_file(tmp_path, monkeypatch):

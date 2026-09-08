@@ -1,189 +1,126 @@
-import os
-import shutil
 from pathlib import Path
 
-os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
-
 import pytest
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QPushButton
 
 from mypackage import gui
 
 
-@pytest.fixture(scope="session")
-def qapp():
-    app = QApplication.instance() or QApplication([])
-    yield app
-    app.processEvents()
-
-
 @pytest.fixture
-def window(qapp, monkeypatch):
+def window(qt_application, monkeypatch):
     monkeypatch.setattr(gui, "get_preferred_device", lambda: "cpu")
     monkeypatch.setattr(gui.MemoryMonitor, "log_memory_usage", lambda *_args: None)
     main_window = gui.Ui_MainWindow()
+    main_window._online_notice_fetch_started = True
     yield main_window
-
     main_window.worker = None
     main_window._closing_without_confirmation = True
     main_window.close()
     main_window.deleteLater()
-    qapp.processEvents()
+    qt_application.processEvents()
 
 
-def _terminal_result(output_folder):
-    return {
-        "source": "사진",
-        "status": gui.DETECTION_STATUS_COMPLETED,
-        "output_folder": str(output_folder),
-    }
+def _remember_result(window, folder, status="completed"):
+    window.remember_detection_result(
+        {"source": "사진", "status": status, "output_folder": str(folder) if folder else None},
+        "작업 종료",
+    )
 
 
 def test_result_folder_button_starts_disabled(window):
-    assert window.pushButton_open_output_folder.text() == "탐지 폴더 열기"
-    assert not window.pushButton_open_output_folder.isEnabled()
+    assert window.open_output_button.text() == "저장 폴더 열기"
+    assert not window.open_output_button.isEnabled()
+    assert window.resultCard.isAncestorOf(window.open_output_button)
 
 
-def test_detection_target_controls_share_one_row_at_minimum_width(window, qapp):
+def test_detection_target_controls_share_one_row_at_minimum_width(window, qt_application):
     window.resize(560, 560)
     window.show()
-    qapp.processEvents()
-
+    qt_application.processEvents()
     viewport = window.scrollArea.viewport()
-    controls = [
-        window.radioButton_all,
-        window.radioButton_person,
-        window.radioButton_car,
-        window.pushButton_open_output_folder,
-    ]
+    controls = [window.radioButton_all, window.radioButton_person, window.radioButton_car]
     centers = [control.mapTo(viewport, control.rect().center()) for control in controls]
-    button = window.pushButton_open_output_folder
-    button_left = button.mapTo(viewport, button.rect().topLeft()).x()
-    button_right = button.mapTo(viewport, button.rect().topRight()).x()
 
     assert window.minimumWidth() <= 560
     assert window.radioButton_all.text() == "전체"
     assert [point.x() for point in centers] == sorted(point.x() for point in centers)
     assert max(point.y() for point in centers) - min(point.y() for point in centers) <= 1
-    assert button_left >= 0
-    assert button_right <= viewport.width()
+    assert all(0 <= point.x() < viewport.width() for point in centers)
+    assert window.findChild(QPushButton, "pushButton_open_output_folder") is None
 
 
-def test_result_folder_button_enables_only_after_processing_finishes(window, tmp_path):
-    output_folder = tmp_path / "detected"
-    output_folder.mkdir()
+@pytest.mark.parametrize("status", ["completed", "partial", "cancelled", "failed", "disconnected"])
+def test_results_tab_can_open_preserved_run_folder(window, tmp_path, status, monkeypatch):
+    folder = tmp_path / "20260908_143025"
+    folder.mkdir()
+    opened = []
+    monkeypatch.setattr(gui.QDesktopServices, "openUrl", lambda url: opened.append(url) or True)
 
-    window.set_processing_state(True)
-    window.on_detection_finished(_terminal_result(output_folder))
+    _remember_result(window, folder, status)
+    window.open_output_button.click()
 
-    assert not window.pushButton_open_output_folder.isEnabled()
-
-    window.set_processing_state(False)
-
-    assert window.pushButton_open_output_folder.isEnabled()
-
-
-def test_starting_new_detection_clears_previous_output_folder(window, tmp_path):
-    output_folder = tmp_path / "detected"
-    output_folder.mkdir()
-
-    window.on_detection_finished(_terminal_result(output_folder))
-    window.set_processing_state(False)
-    assert window.pushButton_open_output_folder.isEnabled()
-
-    window.set_processing_state(True)
-
-    assert window._detection_output_folder is None
-    assert not window.pushButton_open_output_folder.isEnabled()
+    assert window.open_output_button.isEnabled()
+    assert len(opened) == 1
+    assert Path(opened[0].toLocalFile()) == folder.resolve()
 
 
-@pytest.mark.parametrize(
-    "status",
-    [
-        gui.DETECTION_STATUS_FAILED,
-        gui.DETECTION_STATUS_CANCELLED,
-        gui.DETECTION_STATUS_DISCONNECTED,
-    ],
-)
-def test_unsuccessful_detection_does_not_enable_previous_output_folder(
-    window, tmp_path, status
-):
-    output_folder = tmp_path / "detected"
-    output_folder.mkdir()
-    result = _terminal_result(output_folder)
-    result["status"] = status
+def test_latest_result_replaces_previous_run_folder(window, tmp_path, monkeypatch):
+    folders = [tmp_path / name for name in ("20260908_143025", "20260908_143025_1")]
+    opened = []
+    monkeypatch.setattr(gui.QDesktopServices, "openUrl", lambda url: opened.append(url) or True)
+    for folder in folders:
+        folder.mkdir()
+        _remember_result(window, folder)
 
-    window.set_processing_state(True)
-    window.on_detection_finished(result)
-    window.set_processing_state(False)
+    window.open_output_button.click()
 
-    assert window._detection_output_folder is None
-    assert not window.pushButton_open_output_folder.isEnabled()
+    assert len(opened) == 1
+    assert Path(opened[0].toLocalFile()) == folders[-1].resolve()
 
 
-def test_result_folder_button_opens_exact_worker_output_folder(window, tmp_path, monkeypatch):
-    output_folder = tmp_path / "detected"
-    output_folder.mkdir()
-    opened_urls = []
+def test_model_failure_does_not_link_to_previous_run_folder(window, tmp_path):
+    _remember_result(window, tmp_path)
+    assert window.open_output_button.isEnabled()
 
-    def open_url(url):
-        opened_urls.append(url)
-        return True
+    _remember_result(window, None, "failed")
 
-    monkeypatch.setattr(gui.QDesktopServices, "openUrl", open_url)
-
-    window.on_detection_finished(_terminal_result(output_folder))
-    window.set_processing_state(False)
-    window.pushButton_open_output_folder.click()
-
-    assert len(opened_urls) == 1
-    assert Path(opened_urls[0].toLocalFile()) == output_folder.resolve()
+    assert not window.open_output_button.isEnabled()
 
 
 def test_result_folder_button_warns_when_os_rejects_existing_folder(
     window, tmp_path, monkeypatch
 ):
-    output_folder = tmp_path / "detected"
-    output_folder.mkdir()
     warnings = []
     monkeypatch.setattr(gui.QDesktopServices, "openUrl", lambda _url: False)
     monkeypatch.setattr(
-        gui.QMessageBox,
-        "warning",
+        gui.QMessageBox, "warning",
         lambda _parent, title, message: warnings.append((title, message)),
     )
+    _remember_result(window, tmp_path)
 
-    window.on_detection_finished(_terminal_result(output_folder))
-    window.set_processing_state(False)
-    window.pushButton_open_output_folder.click()
+    window.open_output_button.click()
 
-    assert warnings == [
-        ("탐지 폴더 열기", "운영체제에서 탐지 결과 폴더를 열지 못했습니다.")
-    ]
-    assert window.pushButton_open_output_folder.isEnabled()
+    assert warnings == [("결과 열기", "파일을 열지 못했습니다. 저장 폴더를 확인해 주세요.")]
+    assert window.open_output_button.isEnabled()
 
 
 def test_result_folder_button_disables_when_completed_folder_was_removed(
     window, tmp_path, monkeypatch
 ):
-    output_folder = tmp_path / "detected"
-    output_folder.mkdir()
+    folder = tmp_path / "20260908_143025"
+    folder.mkdir()
     warnings = []
-    opened_urls = []
-    monkeypatch.setattr(gui.QDesktopServices, "openUrl", opened_urls.append)
+    opened = []
+    monkeypatch.setattr(gui.QDesktopServices, "openUrl", opened.append)
     monkeypatch.setattr(
-        gui.QMessageBox,
-        "warning",
+        gui.QMessageBox, "warning",
         lambda _parent, title, message: warnings.append((title, message)),
     )
+    _remember_result(window, folder)
+    folder.rmdir()
 
-    window.on_detection_finished(_terminal_result(output_folder))
-    window.set_processing_state(False)
-    shutil.rmtree(output_folder)
-    window.pushButton_open_output_folder.click()
+    window.open_output_button.click()
 
-    assert opened_urls == []
-    assert warnings == [
-        ("탐지 폴더 열기", "탐지 결과 폴더가 존재하지 않습니다. 다시 탐지를 실행해 주세요.")
-    ]
-    assert not window.pushButton_open_output_folder.isEnabled()
+    assert opened == []
+    assert warnings == [("결과 열기", "파일이 이동되었거나 삭제되었습니다.")]
+    assert not window.open_output_button.isEnabled()

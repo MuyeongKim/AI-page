@@ -59,8 +59,8 @@ from mypackage import gps2, start
 from mypackage.device import get_preferred_device, is_mps_available
 from mypackage.modern_gui_fixed import ModernUi_MainWindow
 from mypackage.notices import NOTICE_SOURCE_CACHE, NoticeLoadResult, OnlineNoticeLoader
+from mypackage.output_storage import create_run_output_folder, publish_output_files
 from mypackage.result_view import ResultComparisonDialog
-from mypackage.output_storage import publish_output_files
 from mypackage.video_source import (
     CAPTURE_BOARD_SOURCE,
     VIDEO_FILE_SOURCE,
@@ -81,9 +81,6 @@ DETECTION_STATUS_PARTIAL = "partial"
 DETECTION_STATUS_FAILED = "failed"
 DETECTION_STATUS_CANCELLED = "cancelled"
 DETECTION_STATUS_DISCONNECTED = "disconnected"
-RESULT_FOLDER_STATUSES = frozenset(
-    {DETECTION_STATUS_COMPLETED, DETECTION_STATUS_PARTIAL}
-)
 NOTICE_SETTINGS_ORGANIZATION = "StayUpAI"
 NOTICE_SETTINGS_APPLICATION = "AIObjectDetection"
 NOTICE_SETTINGS_REVISION_KEY = "online_news/last_seen_revision"
@@ -391,8 +388,7 @@ class DetectionWorker(QThread):
     def run(self):
         start_time = time.time()
         detected_files = []
-        output_folder = DETECTED_OUTPUT_DIR
-        folder_existed = output_folder.exists()
+        output_folder = None
         folder_status = "결과 폴더를 준비하지 못했습니다."
         final_status = DETECTION_STATUS_FAILED
         fatal_error = None
@@ -405,28 +401,26 @@ class DetectionWorker(QThread):
             self.log_signal.emit(f"모델 로딩 중: {self.datasize}")
             self.model = YOLO(resolve_model_source(self.datasize))
 
-            output_folder.mkdir(parents=True, exist_ok=True)
-            folder_status = (
-                "폴더(detected_files)가 이미 존재합니다."
-                if folder_existed
-                else "새로운 폴더(detected_files)가 생성되었습니다."
-            )
-
             if not self.is_running:
                 self.log_signal.emit("모델 로딩 후 취소 요청을 확인했습니다.")
                 final_status = DETECTION_STATUS_CANCELLED
-
-            # 소스 유형에 따른 처리
-            elif self.source == "사진":
-                self.process_images(output_folder, detected_files)
-                final_status = self.get_image_terminal_status()
-            elif is_live_video_source(self.source):
-                video_result = self.process_video(output_folder)
-                if video_result["had_detection"]:
-                    detected_files.append(video_result["source"])
-                final_status = video_result["status"]
+                folder_status = "분석 시작 전에 취소되어 결과 폴더를 생성하지 않았습니다."
             else:
-                raise ValueError("입력 소스를 선택해 주세요.")
+                output_folder = create_run_output_folder(DETECTED_OUTPUT_DIR, started_at=start_time)
+                folder_status = f"이번 탐지의 저장 폴더: {output_folder}"
+                self.log_signal.emit(folder_status)
+
+                # 소스 유형에 따른 처리
+                if self.source == "사진":
+                    self.process_images(output_folder, detected_files)
+                    final_status = self.get_image_terminal_status()
+                elif is_live_video_source(self.source):
+                    video_result = self.process_video(output_folder)
+                    if video_result["had_detection"]:
+                        detected_files.append(video_result["source"])
+                    final_status = video_result["status"]
+                else:
+                    raise ValueError("입력 소스를 선택해 주세요.")
 
         except Exception as e:
             fatal_error = str(e)
@@ -447,7 +441,7 @@ class DetectionWorker(QThread):
                 "detected_files": detected_files,
                 "original_files": list(self.original_files),
                 "output_files": list(self.output_files),
-                "output_folder": str(output_folder),
+                "output_folder": str(output_folder) if output_folder is not None else None,
                 "folder_status": folder_status,
                 "execution_time": time.time() - start_time,
                 "total_people": self.total_people_detected,
@@ -1047,7 +1041,6 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
         self.progress_dialog = None
         self._pending_detection_result = None
         self._pending_detection_error = None
-        self._detection_output_folder = None
         self._processing = False
         self._close_requested = False
         self._close_after_worker = False
@@ -1078,7 +1071,6 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
         self.pushButton_search.clicked.connect(self.browse_files)
         self.pushButton_search_2.clicked.connect(self.browse_folders)
         self.pushButton_enter.clicked.connect(self.submit)
-        self.pushButton_open_output_folder.clicked.connect(self.open_detection_folder)
         self.open_output_button.clicked.connect(self.open_output_folder)
         self.open_result_button.clicked.connect(self.open_selected_result)
         self.compare_result_button.clicked.connect(self.compare_selected_result)
@@ -1248,6 +1240,7 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
 
     def open_output_folder(self):
         self.open_local_result((self._last_detection_result or {}).get("output_folder"))
+        self.update_result_actions()
 
     def open_selected_result(self):
         self.open_local_result((self.result_files_combo.currentData() or {}).get("output"))
@@ -1464,9 +1457,6 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
         self.pushButton_enter.setEnabled(
             not self._processing and bool(self.datasize) and self.input_is_ready()
         )
-        self.pushButton_open_output_folder.setEnabled(
-            not self._processing and self._detection_output_folder_is_ready()
-        )
         if not self._processing:
             if not has_source:
                 message = "입력 소스와 탐지 모델을 선택해 주세요."
@@ -1486,44 +1476,10 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
             self.set_main_status(message)
 
     def set_processing_state(self, active):
-        if active:
-            self._detection_output_folder = None
         self._processing = active
         self.update_action_states()
         if active:
             self.set_main_status(f"탐지 실행 중 · {self.device.upper()}", "working")
-
-    def _detection_output_folder_is_ready(self):
-        try:
-            return (
-                self._detection_output_folder is not None
-                and self._detection_output_folder.is_dir()
-            )
-        except OSError:
-            return False
-
-    def _set_detection_output_folder(self, folder):
-        self._detection_output_folder = Path(folder).expanduser() if folder else None
-        self.update_action_states()
-
-    @Slot()
-    def open_detection_folder(self):
-        if not self._detection_output_folder_is_ready():
-            self._set_detection_output_folder(None)
-            QMessageBox.warning(
-                self,
-                "탐지 폴더 열기",
-                "탐지 결과 폴더가 존재하지 않습니다. 다시 탐지를 실행해 주세요.",
-            )
-            return
-
-        folder_url = QUrl.fromLocalFile(str(self._detection_output_folder.resolve()))
-        if not QDesktopServices.openUrl(folder_url):
-            QMessageBox.warning(
-                self,
-                "탐지 폴더 열기",
-                "운영체제에서 탐지 결과 폴더를 열지 못했습니다.",
-            )
 
     def exit_application(self):
         self.close()
@@ -2121,10 +2077,6 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
         """Store the terminal result until the underlying QThread exits."""
         self._pending_detection_result = result
         status = result.get("status", DETECTION_STATUS_COMPLETED)
-        output_folder = (
-            result.get("output_folder") if status in RESULT_FOLDER_STATUSES else None
-        )
-        self._set_detection_output_folder(output_folder)
         if is_live_video_source(result["source"]):
             if self.preview_window is not None:
                 preview_messages = {

@@ -35,9 +35,20 @@ class ReleaseInfo:
 
 
 CURRENT_RELEASE = ReleaseInfo(
-    version="26.0905",
-    release_date="2026-09-05",
+    version="26.0908",
+    release_date="2026-09-08",
     changelog=(
+        ChangelogSection(
+            date="2026.09.08",
+            title="V26.0908 배포 아이콘과 실행별 결과 폴더 개선",
+            items=(
+                "드롭다운 SVG를 Qt 리소스에 내장해 배포본의 아이콘 경로 오류 수정",
+                "탐지 대상의 중복 폴더 버튼 제거 및 작업 결과의 저장 폴더 열기로 통일",
+                "탐지 시작 시각별 새 폴더에 사진 원본·탐지본, 결과 영상과 GPS 지도 저장",
+                "같은 시각의 동시 실행에도 고유 폴더를 생성하고 이전 결과 보존",
+                "SVG 배포·실행별 저장·결과 폴더 연결 및 Windows 환경 회귀 검증 보강",
+            ),
+        ),
         ChangelogSection(
             date="2026.09.05",
             title="V26.0905 결과 보호와 사용성 개선",

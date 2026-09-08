@@ -109,6 +109,8 @@ def test_fatal_model_error_keeps_error_signal_and_also_emits_failed_result(tmp_p
     assert results[0]["status"] == gui.DETECTION_STATUS_FAILED
     assert results[0]["fatal_error"] == "model load failed"
     assert results[0]["errors"] == ["model load failed"]
+    assert results[0]["output_folder"] is None
+    assert not (tmp_path / "detected").exists()
 
 
 def test_fatal_error_after_successful_photo_is_partial(tmp_path, monkeypatch):
