@@ -5,8 +5,8 @@ from __future__ import annotations
 import argparse
 import re
 import sys
+from html import escape
 from pathlib import Path
-from xml.sax.saxutils import escape
 
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER
@@ -40,7 +40,7 @@ WIDTH = A4[0] - 84
 
 
 def inline(text: str) -> str:
-    text = escape(text)
+    text = escape(text, quote=False)
     text = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', text)
     text = re.sub(r'`([^`]+)`', r'\1', text)
     return text
