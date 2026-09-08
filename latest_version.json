@@ -1,15 +1,15 @@
 {
   "version": "26.0908",
   "release_date": "2026-09-08",
-  "download_url": null,
+  "download_url": "https://drive.google.com/file/d/1nrEi7MmLmVYaYK33hloeHfGYxx5tmjcV/view?usp=sharing",
   "download": {
-    "status": "preparing",
+    "status": "ready",
     "provider": "google_drive",
     "platform": "Windows",
-    "filename": null,
-    "url": null,
-    "size_bytes": null,
-    "sha256": null
+    "filename": "AI객체탐지프로그램 V26.0908(디렉토리).zip",
+    "url": "https://drive.google.com/file/d/1nrEi7MmLmVYaYK33hloeHfGYxx5tmjcV/view?usp=sharing",
+    "size_bytes": 2302816169,
+    "sha256": "dc6fe940140b620dcef456152b8119b6363500450c63acd140d60107bf48bf7a"
   },
   "changelog": [
     "드롭다운 SVG를 Qt 리소스에 내장해 배포본의 아이콘 경로 오류 수정",

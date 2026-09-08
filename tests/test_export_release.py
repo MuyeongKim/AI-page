@@ -1,8 +1,10 @@
 import hashlib
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
+from urllib.parse import urlparse
 
 import pytest
 
@@ -28,7 +30,7 @@ def _write_artifact(tmp_path: Path, content: bytes = b"real windows artifact") -
     return artifact
 
 
-def test_current_feed_is_generated_from_current_release_and_marks_download_preparing():
+def test_current_feed_is_generated_from_current_release_and_publishes_ready_download():
     feed_path = PROJECT_ROOT / "latest_version.json"
     with feed_path.open(encoding="utf-8") as stream:
         actual = json.load(stream)
@@ -39,8 +41,30 @@ def test_current_feed_is_generated_from_current_release_and_marks_download_prepa
     assert actual["version"] == CURRENT_RELEASE.version == "26.0908"
     assert actual["release_date"] == CURRENT_RELEASE.release_date == "2026-09-08"
     assert actual["changelog"] == current_release_changelog()
-    assert actual["download_url"] is None
-    assert actual["download"] == {
+
+    download = actual["download"]
+    assert download["status"] == "ready"
+    assert download["provider"] == "google_drive"
+    assert download["platform"] == "Windows"
+    assert download["filename"] == "AI객체탐지프로그램 V26.0908(디렉토리).zip"
+    assert actual["download_url"] == download["url"]
+    download_url = urlparse(download["url"])
+    assert (download_url.scheme, download_url.netloc, download_url.path) == (
+        "https",
+        "drive.google.com",
+        "/file/d/1nrEi7MmLmVYaYK33hloeHfGYxx5tmjcV/view",
+    )
+    assert type(download["size_bytes"]) is int
+    assert download["size_bytes"] > 0
+    assert isinstance(download["sha256"], str)
+    assert re.fullmatch(r"[0-9a-f]{64}", download["sha256"])
+
+
+def test_new_release_feed_defaults_to_preparing_without_download_metadata():
+    feed = build_release_feed()
+
+    assert feed["download_url"] is None
+    assert feed["download"] == {
         "status": "preparing",
         "provider": "google_drive",
         "platform": "Windows",

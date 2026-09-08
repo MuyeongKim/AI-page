@@ -137,15 +137,17 @@ token이 만료되거나 노출된 경우에는 즉시 폐기하고 새 token으
 
 ## Windows 배포본 공개
 
+현재 `V26.0908`은 [Google Drive의 Windows 배포 ZIP](https://drive.google.com/file/d/1nrEi7MmLmVYaYK33hloeHfGYxx5tmjcV/view?usp=sharing)에 연결되어 있습니다. 실제 내려받은 파일에서 크기와 SHA-256을 계산해 루트 `latest_version.json`에 반영했습니다. 웹은 이 피드로 다운로드 버튼과 파일 정보를 표시하며, ZIP 배포본에는 전체 압축 해제 후 실행 파일과 구성 폴더를 함께 보관하도록 안내합니다.
+
 새 버전으로 올리면 `python scripts/export_release.py`가 이전 배포 링크를 자동으로
-폐기하고 `preparing` 상태로 초기화합니다. 검증된 EXE 배포본을 Google Drive에
+폐기하고 `preparing` 상태로 초기화합니다. EXE 또는 ZIP 배포본을 Google Drive에
 올린 뒤 프로젝트 루트에서 실제 로컬 배포 파일과 공유 주소를 함께 지정합니다. 파일명,
 크기와 SHA-256은 스크립트가 직접 계산하므로 `latest_version.json`에 수동으로 입력하지
 않습니다.
 
 ```bash
 python scripts/export_release.py \
-  --download-file /path/to/AI-object-detection.exe \
+  --download-file '/path/to/AI객체탐지프로그램 V26.0908(디렉토리).zip' \
   --download-url https://drive.google.com/file/d/FILE_ID/view
 
 python scripts/export_release.py --check
