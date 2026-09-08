@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - "site/**"
+      - "docs/images/manual-*.png"
+      - "output/pdf/*.pdf"
       - "latest_version.json"
       - "site_updates.json"
       - "mypackage/version.py"
@@ -14,6 +16,8 @@ on:
       - main
     paths:
       - "site/**"
+      - "docs/images/manual-*.png"
+      - "output/pdf/*.pdf"
       - "latest_version.json"
       - "site_updates.json"
       - "mypackage/version.py"

@@ -1,5 +1,5 @@
 import { readdir, readFile, stat } from "node:fs/promises";
-import { dirname, resolve } from "node:path";
+import { basename, dirname, extname, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { HtmlValidate } from "html-validate";
 
@@ -40,10 +40,84 @@ const fieldPhotoNames = [
 const fieldPhotos = await Promise.all(
   fieldPhotoNames.map((name) => stat(resolve(siteRoot, "dist/images/field", name))),
 );
-const currentAppScreen = await stat(resolve(siteRoot, "dist/images/current-app.png"));
-if (currentAppScreen.size === 0 || !html.includes('/images/current-app.png')) {
-  throw new Error("현재 프로그램 화면이 빌드 결과에 포함되지 않았습니다.");
+
+function attributeValue(tag, name) {
+  const match = tag.match(new RegExp(
+    `\\s${name}(?:\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s>]+)))?(?=[\\s/>])`,
+    "i",
+  ));
+  return match ? (match[1] ?? match[2] ?? match[3] ?? "").replaceAll("&amp;", "&") : null;
 }
+
+function markedTags(tagName, marker) {
+  return [...html.matchAll(new RegExp(`<${tagName}\\b[^>]*>`, "gi"))]
+    .map(([tag]) => tag)
+    .filter((tag) => attributeValue(tag, marker) !== null);
+}
+
+async function verifyEmittedAsset(assetUrl, sourcePath, label, signature) {
+  if (!assetUrl?.startsWith("/_astro/")) {
+    throw new Error(`${label}은 빌드된 /_astro/ 자산을 참조해야 합니다.`);
+  }
+  const url = new URL(assetUrl, "https://build.invalid");
+  const emittedRoot = resolve(siteRoot, "dist/_astro");
+  const emittedPath = resolve(siteRoot, "dist", decodeURIComponent(url.pathname.slice(1)));
+  if (url.search || url.hash || !emittedPath.startsWith(`${emittedRoot}${sep}`)) {
+    throw new Error(`${label}의 배포 자산 경로가 올바르지 않습니다.`);
+  }
+  const sourceName = basename(sourcePath);
+  const extension = extname(sourceName);
+  const emittedName = basename(emittedPath);
+  if (
+    emittedName === sourceName ||
+    !emittedName.startsWith(`${sourceName.slice(0, -extension.length)}.`) ||
+    !emittedName.endsWith(extension)
+  ) {
+    throw new Error(`${label}의 배포 파일명에 현재 버전과 빌드 해시가 없습니다: ${emittedName}`);
+  }
+  const [source, emitted] = await Promise.all([readFile(sourcePath), readFile(emittedPath)]);
+  if (source.length === 0 || !source.subarray(0, signature.length).equals(signature)) {
+    throw new Error(`${label} 원본 파일 형식이 올바르지 않습니다.`);
+  }
+  if (!source.equals(emitted)) {
+    throw new Error(`${label} 배포 자산이 현재 버전 원본 파일과 다릅니다.`);
+  }
+}
+
+const currentAppImages = markedTags("img", "data-current-app-image");
+if (currentAppImages.length !== 1) {
+  throw new Error("현재 Windows 프로그램 화면은 정확히 한 개 표시해야 합니다.");
+}
+const currentAppAlt = attributeValue(currentAppImages[0], "alt") ?? "";
+if (!currentAppAlt.includes("Windows") || !currentAppAlt.includes(`V${release.version}`)) {
+  throw new Error("현재 프로그램 화면 설명에 Windows와 최신 버전이 표시되지 않았습니다.");
+}
+await verifyEmittedAsset(
+  attributeValue(currentAppImages[0], "src"),
+  resolve(projectRoot, `docs/images/manual-main-V${release.version}.png`),
+  "현재 Windows 프로그램 화면",
+  Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+);
+
+const manualName = `Stay-Up-AI-사용설명서-V${release.version}.pdf`;
+const manualLinks = markedTags("a", "data-user-manual");
+if (manualLinks.length !== 2) {
+  throw new Error("사용설명서 PDF 보기와 다운로드 링크가 모두 필요합니다.");
+}
+const manualUrls = manualLinks.map((tag) => attributeValue(tag, "href"));
+if (new Set(manualUrls).size !== 1) {
+  throw new Error("사용설명서 보기와 다운로드는 같은 PDF를 참조해야 합니다.");
+}
+const downloadLinks = manualLinks.filter((tag) => attributeValue(tag, "download") !== null);
+if (downloadLinks.length !== 1 || attributeValue(downloadLinks[0], "download") !== manualName) {
+  throw new Error(`사용설명서 다운로드 파일명은 ${manualName}이어야 합니다.`);
+}
+await verifyEmittedAsset(
+  manualUrls[0],
+  resolve(projectRoot, "output/pdf", manualName),
+  "사용설명서 PDF",
+  Buffer.from("%PDF-", "ascii"),
+);
 
 const htmlValidate = new HtmlValidate();
 const adminValidation = await htmlValidate.validateString(adminHtml);

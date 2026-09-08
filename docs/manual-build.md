@@ -4,7 +4,7 @@
 - PDF: `output/pdf/Stay-Up-AI-사용설명서-V26.0908.pdf`
 - 생성기: `scripts/build_user_manual.py`
 - 기준: `mypackage/version.py`의 V26.0908, 2026-09-08 개정
-- 화면: `docs/images/manual-main-V26.0908.png`. 현재 소스의 실제 Windows GUI를 `scripts/capture_user_manual.py`로 캡처한다. 기존 웹사이트 화면과 별도로 설명서 버전에 맞춰 관리한다.
+- 화면: `docs/images/manual-main-V26.0908.png`. 현재 소스의 실제 Windows GUI를 `scripts/capture_user_manual.py`로 캡처한다. 설명서 버전에 맞춰 관리하며, 웹사이트도 같은 이미지와 PDF 원본을 직접 가져와 사용한다.
 
 Markdown의 `<!-- pagebreak -->`는 PDF의 고정 페이지 구분이다. PDF는 이 원본을 읽어 생성하므로 내용을 별도로 복제해서 편집하지 않는다. 목차 페이지는 구성이 달라지면 함께 갱신한다. 생성기는 표지의 대상 버전이 `CURRENT_RELEASE.display_version`과 다르면 실패하며, 출력 파일명·PDF 바닥글·메타데이터에 현재 앱 버전을 사용한다.
 

@@ -558,6 +558,52 @@ h2 {
   font-size: 0.9rem;
 }
 
+.manual-card {
+  scroll-margin-top: 7rem;
+  margin-top: 2rem;
+  padding: 1.5rem;
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  background: var(--bg-deep);
+}
+
+.manual-meta {
+  color: var(--orange-light);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.manual-card h3 {
+  margin: 0.6rem 0;
+  font-size: 1.15rem;
+  word-break: keep-all;
+}
+
+.manual-card p,
+.manual-card small {
+  color: var(--muted);
+}
+
+.manual-card small {
+  display: block;
+  margin-top: 1rem;
+  font-size: 0.8rem;
+  line-height: 1.7;
+}
+
+.manual-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin-top: 1rem;
+}
+
+.manual-actions .button {
+  flex: 1 1 10rem;
+  min-width: 0;
+  padding-inline: 1rem;
+}
+
 .field-gallery {
   display: grid;
   grid-template-columns: minmax(0, 3fr) minmax(0, 5fr) minmax(0, 4fr);
