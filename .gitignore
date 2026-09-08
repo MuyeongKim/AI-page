@@ -142,6 +142,9 @@ site/dist/
 !site/public/**/*.webp
 !site/public/**/*.avif
 
+# Screenshots included in the versioned user manual
+!docs/images/manual-*.png
+
 # Data Directories (Large Size)
 data/
 dataset/
