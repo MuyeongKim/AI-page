@@ -46,6 +46,10 @@ npm test
 자산은 내용 해시가 포함된 URL로 배포하므로 이전 버전 캐시와 구분됩니다. 원본 이미지와
 PDF가 바뀔 때도 GitHub Actions의 랜딩페이지 검사를 실행합니다.
 
+Vercel의 PDF 응답은 `Content-Disposition: inline`으로 설정합니다. 서버가 해시 포함
+파일명을 강제하지 않아 PDF는 새 탭에서 열리고, 다운로드 버튼은 버전이 포함된 한글
+파일명을 사용합니다. PDF 뷰어가 요청하는 `/favicon.ico`는 기존 `/favicon.png`로 연결합니다.
+
 ## 온라인 공지 관리자
 
 `/admin`에서 작성한 일반 공지는 GitHub `content` 브랜치의 `site_updates.json`에만

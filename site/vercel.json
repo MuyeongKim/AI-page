@@ -8,7 +8,22 @@
   "buildCommand": "npm test",
   "outputDirectory": "dist",
   "cleanUrls": true,
+  "rewrites": [
+    {
+      "source": "/favicon.ico",
+      "destination": "/favicon.png"
+    }
+  ],
   "headers": [
+    {
+      "source": "/_astro/(.*).pdf",
+      "headers": [
+        {
+          "key": "Content-Disposition",
+          "value": "inline"
+        }
+      ]
+    },
     {
       "source": "/(.*)",
       "headers": [
