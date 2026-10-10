@@ -31,6 +31,34 @@ interface SiteUpdate {
 }
 
 const githubUrl = "https://github.com/MuyeongKim/AI-page";
+const productionBranch = "main";
+const vercelCommitSha = import.meta.env.VERCEL_GIT_COMMIT_SHA?.trim() ?? "";
+const vercelCommitRef = import.meta.env.VERCEL_GIT_COMMIT_REF?.trim() ?? "";
+const deployedCommitSha = /^[0-9a-f]{40}$/i.test(vercelCommitSha)
+  ? vercelCommitSha.toLowerCase()
+  : null;
+const deployedFromMain = deployedCommitSha !== null && vercelCommitRef === productionBranch;
+const deployedCommitUrl = deployedCommitSha
+  ? `${githubUrl}/commit/${deployedCommitSha}`
+  : `${githubUrl}/commits/${productionBranch}`;
+const deployedCommitLabel = deployedCommitSha?.slice(0, 7) ?? productionBranch;
+const deploymentStatusTitle = deployedFromMain
+  ? "현재 홈페이지에 반영된 소스"
+  : deployedCommitSha
+    ? "미리보기 배포 소스"
+    : "GitHub main 자동 배포 연결";
+const deploymentBuiltAt = deployedCommitSha ? new Date() : null;
+const deploymentBuiltAtLabel = deploymentBuiltAt
+  ? new Intl.DateTimeFormat("ko-KR", {
+      timeZone: "Asia/Seoul",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    }).format(deploymentBuiltAt)
+  : null;
 const versionLabel = `V${releaseFeed.version}`;
 const guideVersion = "26.0908";
 if (guideVersion !== releaseFeed.version) {
@@ -517,6 +545,41 @@ const faqs = [
             </p>
           </div>
         </div>
+
+        <article class="repository-sync-card" data-deployment-sync>
+          <div class="repository-sync-copy">
+            <p class="repository-sync-label">
+              <span aria-hidden="true"></span>
+              GITHUB MAIN · VERCEL
+            </p>
+            <h3>{deploymentStatusTitle}</h3>
+            <p>
+              main 커밋이 사이트 검증을 통과하면 운영 홈페이지가 자동으로 교체됩니다. 개발
+              소스의 변경 내용은 공개 Windows ZIP에 아직 포함되지 않을 수 있습니다.
+            </p>
+          </div>
+          <dl class="repository-sync-meta">
+            <div>
+              <dt>반영 커밋</dt>
+              <dd>
+                <a href={deployedCommitUrl} target="_blank" rel="noopener noreferrer">
+                  <code>{deployedCommitLabel}</code>
+                  <span>GitHub에서 보기</span>
+                </a>
+              </dd>
+            </div>
+            {
+              deploymentBuiltAt && deploymentBuiltAtLabel && (
+                <div>
+                  <dt>페이지 빌드</dt>
+                  <dd>
+                    <time datetime={deploymentBuiltAt.toISOString()}>{deploymentBuiltAtLabel}</time>
+                  </dd>
+                </div>
+              )
+            }
+          </dl>
+        </article>
 
         <div class="updates-grid">
           <div

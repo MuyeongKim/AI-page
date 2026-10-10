@@ -6,6 +6,7 @@ import { HtmlValidate } from "html-validate";
 const scriptDirectory = dirname(fileURLToPath(import.meta.url));
 const siteRoot = resolve(scriptDirectory, "..");
 const projectRoot = resolve(siteRoot, "..");
+const githubUrlForVerification = "https://github.com/MuyeongKim/AI-page";
 
 const [
   html,
@@ -144,6 +145,7 @@ const requiredText = [
   "실제 운용 성능을 보증하지 않습니다",
   "Windows 배포본",
   "AGPL-3.0",
+  "main 커밋이 사이트 검증을 통과하면 운영 홈페이지가 자동으로 교체됩니다",
 ];
 
 for (const text of requiredText) {
@@ -212,6 +214,28 @@ if (!adminHtml.includes('name="robots" content="noindex, nofollow, noarchive"'))
 if (!html.includes(`data-revision="${updateFeed.revision}"`)) {
   throw new Error("랜딩페이지의 공지 fallback 리비전이 원본 JSON과 다릅니다.");
 }
+if (!html.includes("data-deployment-sync")) {
+  throw new Error("랜딩페이지에 GitHub와 운영 배포의 동기화 상태가 없습니다.");
+}
+const deploymentSha = process.env.VERCEL_GIT_COMMIT_SHA?.trim();
+const deploymentRef = process.env.VERCEL_GIT_COMMIT_REF?.trim();
+if (deploymentSha || deploymentRef) {
+  if (!/^[0-9a-f]{40}$/i.test(deploymentSha ?? "") || !deploymentRef) {
+    throw new Error("Vercel 배포 커밋 메타데이터에는 브랜치와 40자리 Git SHA가 필요합니다.");
+  }
+  if (
+    !html.includes(`${githubUrlForVerification}/commit/${deploymentSha.toLowerCase()}`) ||
+    !html.includes(deploymentSha.slice(0, 7).toLowerCase())
+  ) {
+    throw new Error("Vercel 배포 커밋 링크가 빌드 결과와 일치하지 않습니다.");
+  }
+  const expectedStatus = deploymentRef === "main"
+    ? "현재 홈페이지에 반영된 소스"
+    : "미리보기 배포 소스";
+  if (!html.includes(expectedStatus)) {
+    throw new Error("Vercel 배포 환경에 맞는 소스 상태가 표시되지 않았습니다.");
+  }
+}
 
 for (const endpoint of [
   "/api/updates",
@@ -268,6 +292,12 @@ if (siteUrl) {
 
 if (vercel.buildCommand !== "npm test") {
   throw new Error("Vercel 빌드는 전체 랜딩페이지 검증을 실행해야 합니다.");
+}
+if (vercel.outputDirectory !== "dist") {
+  throw new Error("Vercel 배포 결과 경로는 Astro의 dist여야 합니다.");
+}
+if (vercel.git?.deploymentEnabled?.content !== false) {
+  throw new Error("공지 content 브랜치는 Vercel 재배포를 만들지 않아야 합니다.");
 }
 const responseHeaders = vercel.headers?.flatMap((rule) => rule.headers ?? []) ?? [];
 const csp = responseHeaders.find((header) => header.key === "Content-Security-Policy")?.value;
