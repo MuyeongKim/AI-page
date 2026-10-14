@@ -8,7 +8,7 @@
 - 현재 Windows 화면을 다시 캡처하고 Markdown·PDF 사용설명서를 V26.1014 기준으로 맞췄다.
 - 개발 환경의 Ultralytics 8.4.177, PyTorch 2.14.1·torchvision 0.29.1(CUDA 13.2) 조합에서 GPU 연산과 YOLO 추론을 검증했다.
 - FastAPI·Streamlit 의존성 충돌을 해소하고 패키지 호환성을 확인했다.
-- 새 Windows 배포본 등록 전까지 다운로드 상태를 `preparing`으로 두며 이전 릴리스 이력과 자료를 보존한다.
+- V26.1014 Windows 배포 ZIP을 Google Drive에 연결하고 비로그인 다운로드, 파일 크기, SHA-256과 ZIP 전체 CRC를 검증했다.
 
 ## 2026.09.08 (버전 V26.0908)
 - 드롭다운 SVG를 Qt 리소스 모듈에 포함해 배포본의 외부 아이콘 파일 누락 오류를 수정했다.

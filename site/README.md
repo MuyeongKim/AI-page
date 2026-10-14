@@ -157,7 +157,7 @@ token이 만료되거나 노출된 경우에는 즉시 폐기하고 새 token으
 
 ## Windows 배포본 공개
 
-현재 `V26.1014`의 Windows 배포본은 준비 중(`preparing`)입니다. 이전 `V26.0908`의 Google Drive ZIP을 새 버전 배포본으로 연결하지 않습니다. 웹은 루트 `latest_version.json`의 상태에 따라 다운로드 준비 안내를 표시하며, 새 배포 파일을 검증해 등록하면 다운로드 버튼과 파일 정보를 표시합니다. ZIP 배포본에는 전체 압축 해제 후 실행 파일과 구성 폴더를 함께 보관하도록 안내합니다.
+현재 `V26.1014` Windows 배포 ZIP은 [Google Drive](https://drive.google.com/file/d/1xOw_2TIBZdyV4EJml7bFqb4-6TPE-AHE/view?usp=sharing)에 연결되어 있습니다. 공개 링크에서 실제 파일 전체를 내려받아 크기·SHA-256과 ZIP CRC를 확인했으며, 웹은 루트 `latest_version.json`의 `ready` 메타데이터로 다운로드 버튼과 파일 정보를 표시합니다. ZIP 배포본에는 전체 압축 해제 후 실행 파일과 구성 폴더를 함께 보관하도록 안내합니다.
 
 새 버전으로 올리면 `python scripts/export_release.py`가 이전 배포 링크를 자동으로
 폐기하고 `preparing` 상태로 초기화합니다. EXE 또는 ZIP 배포본을 Google Drive에

@@ -10,7 +10,7 @@ YOLO와 PySide6로 구성한 데스크톱 AI 객체 탐지 프로그램입니다
 
 - `V26.1014` (2026-10-14)
 - GUI 창 제목·프로그램 안내와 공개 릴리스 피드는 같은 버전을 사용합니다.
-- V26.1014 Windows 배포본은 **배포 준비 중**입니다. 새 ZIP을 빌드하고 다운로드 주소를 등록하면 파일명·크기·SHA-256이 [릴리스 피드](latest_version.json)에 반영됩니다.
+- [V26.1014 Windows 배포본 ZIP 다운로드](https://drive.google.com/file/d/1xOw_2TIBZdyV4EJml7bFqb4-6TPE-AHE/view?usp=sharing): `AI객체탐지프로그램 V26.1014(디렉토리).zip` (약 2.04 GB). 실제 파일 크기와 SHA-256은 [릴리스 피드](latest_version.json)에 기록합니다.
 - 소스에서 실행하면 새 버전이 표시됩니다. 기존 Windows EXE에 새 버전을 반영하려면 재빌드해야 합니다. 배포 ZIP은 **모두 압축 풀기**로 해제하고 실행 파일·`_internal` 구성 폴더·모델 파일을 같은 위치에 보관하세요.
 
 ## 주요 기능
@@ -170,7 +170,7 @@ AI-page/
 
 - GUI 창 제목·인증 안내·변경 이력·공개 릴리스 피드와 웹사이트의 버전 및 날짜를 갱신했습니다. Windows 화면과 PDF 사용설명서도 V26.1014 기준으로 생성했습니다.
 - 개발 환경에서 Ultralytics 8.4.177, PyTorch 2.14.1·torchvision 0.29.1(CUDA 13.2)을 설치하고 GPU 연산과 YOLO 추론을 검증했습니다. FastAPI·Streamlit 의존성 충돌도 해결했습니다.
-- 새 Windows 배포 파일을 등록하기 전까지 다운로드 상태는 `preparing`입니다. 이전 릴리스 이력과 배포 자료는 보존합니다.
+- [V26.1014 Windows 배포 ZIP](https://drive.google.com/file/d/1xOw_2TIBZdyV4EJml7bFqb4-6TPE-AHE/view?usp=sharing)을 Google Drive 다운로드 버튼에 연결했습니다. 비로그인 다운로드, 파일 크기, SHA-256과 ZIP 전체 CRC 검사를 확인했으며 이전 릴리스 이력과 배포 자료는 보존합니다.
 
 ### 2026.09.08 `V26.0908` — 배포 아이콘과 실행별 결과 폴더 개선
 

@@ -26,6 +26,7 @@ def test_current_release_drives_version_title_and_gui_changelog():
     assert CURRENT_RELEASE.display_version in CURRENT_RELEASE.window_title
     assert CURRENT_RELEASE.changelog[0].title == "V26.1014 실행 환경 및 버전 정보 갱신"
     assert "2026.10.14 V26.1014 실행 환경 및 버전 정보 갱신" in changelog
+    assert "V26.1014 Windows 배포 ZIP을 Google Drive에 연결" in changelog
     assert "2026.09.08 V26.0908 배포 아이콘과 실행별 결과 폴더 개선" in changelog
     assert "2026.09.05 V26.0905 결과 보호와 사용성 개선" in changelog
     assert "2026.08.25 V26.08.25 시작 환경 자동 설정" in changelog
