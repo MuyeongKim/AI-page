@@ -1,10 +1,8 @@
 import hashlib
 import json
-import re
 import subprocess
 import sys
 from pathlib import Path
-from urllib.parse import urlparse
 
 import pytest
 
@@ -30,7 +28,7 @@ def _write_artifact(tmp_path: Path, content: bytes = b"real windows artifact") -
     return artifact
 
 
-def test_current_feed_is_generated_from_current_release_and_publishes_ready_download():
+def test_current_feed_is_generated_from_current_release_and_prepares_download():
     feed_path = PROJECT_ROOT / "latest_version.json"
     with feed_path.open(encoding="utf-8") as stream:
         actual = json.load(stream)
@@ -38,26 +36,20 @@ def test_current_feed_is_generated_from_current_release_and_publishes_ready_down
     expected = build_release_feed(actual)
 
     assert actual == expected
-    assert actual["version"] == CURRENT_RELEASE.version == "26.0908"
-    assert actual["release_date"] == CURRENT_RELEASE.release_date == "2026-09-08"
+    assert actual["version"] == CURRENT_RELEASE.version == "26.1014"
+    assert actual["release_date"] == CURRENT_RELEASE.release_date == "2026-10-14"
     assert actual["changelog"] == current_release_changelog()
 
-    download = actual["download"]
-    assert download["status"] == "ready"
-    assert download["provider"] == "google_drive"
-    assert download["platform"] == "Windows"
-    assert download["filename"] == "AI객체탐지프로그램 V26.0908(디렉토리).zip"
-    assert actual["download_url"] == download["url"]
-    download_url = urlparse(download["url"])
-    assert (download_url.scheme, download_url.netloc, download_url.path) == (
-        "https",
-        "drive.google.com",
-        "/file/d/1nrEi7MmLmVYaYK33hloeHfGYxx5tmjcV/view",
-    )
-    assert type(download["size_bytes"]) is int
-    assert download["size_bytes"] > 0
-    assert isinstance(download["sha256"], str)
-    assert re.fullmatch(r"[0-9a-f]{64}", download["sha256"])
+    assert actual["download_url"] is None
+    assert actual["download"] == {
+        "status": "preparing",
+        "provider": "google_drive",
+        "platform": "Windows",
+        "filename": None,
+        "url": None,
+        "size_bytes": None,
+        "sha256": None,
+    }
 
 
 def test_new_release_feed_defaults_to_preparing_without_download_metadata():
@@ -107,7 +99,7 @@ def test_ready_google_drive_download_is_preserved_for_same_release(tmp_path):
     assert feed["download"] == ready_download
 
 
-@pytest.mark.parametrize("old_version", ["26.08.17", "26.08.25", "26.0904", "26.0905"])
+@pytest.mark.parametrize("old_version", ["26.08.17", "26.08.25", "26.0904", "26.0905", "26.0908"])
 def test_old_release_download_is_not_reused_for_new_release(tmp_path, old_version):
     artifact = _write_artifact(tmp_path)
     existing = {

@@ -1,21 +1,19 @@
 {
-  "version": "26.0908",
-  "release_date": "2026-09-08",
-  "download_url": "https://drive.google.com/file/d/1nrEi7MmLmVYaYK33hloeHfGYxx5tmjcV/view?usp=sharing",
+  "version": "26.1014",
+  "release_date": "2026-10-14",
+  "download_url": null,
   "download": {
-    "status": "ready",
+    "status": "preparing",
     "provider": "google_drive",
     "platform": "Windows",
-    "filename": "AI객체탐지프로그램 V26.0908(디렉토리).zip",
-    "url": "https://drive.google.com/file/d/1nrEi7MmLmVYaYK33hloeHfGYxx5tmjcV/view?usp=sharing",
-    "size_bytes": 2302816169,
-    "sha256": "dc6fe940140b620dcef456152b8119b6363500450c63acd140d60107bf48bf7a"
+    "filename": null,
+    "url": null,
+    "size_bytes": null,
+    "sha256": null
   },
   "changelog": [
-    "드롭다운 SVG를 Qt 리소스에 내장해 배포본의 아이콘 경로 오류 수정",
-    "탐지 대상의 중복 폴더 버튼 제거 및 작업 결과의 저장 폴더 열기로 통일",
-    "탐지 시작 시각별 새 폴더에 사진 원본·탐지본, 결과 영상과 GPS 지도 저장",
-    "같은 시각의 동시 실행에도 고유 폴더를 생성하고 이전 결과 보존",
-    "SVG 배포·실행별 저장·결과 폴더 연결 및 Windows 환경 회귀 검증 보강"
+    "버전·릴리스 날짜·GUI 안내·웹사이트·사용설명서를 V26.1014 기준으로 동기화",
+    "Ultralytics 8.4.177과 PyTorch 2.14.1·torchvision 0.29.1(CUDA 13.2) 환경에서 GPU 추론 검증",
+    "개발 환경의 FastAPI·Streamlit 의존성 충돌 해소 및 패키지 호환성 확인"
   ]
 }

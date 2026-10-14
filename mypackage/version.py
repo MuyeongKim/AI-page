@@ -35,9 +35,18 @@ class ReleaseInfo:
 
 
 CURRENT_RELEASE = ReleaseInfo(
-    version="26.0908",
-    release_date="2026-09-08",
+    version="26.1014",
+    release_date="2026-10-14",
     changelog=(
+        ChangelogSection(
+            date="2026.10.14",
+            title="V26.1014 실행 환경 및 버전 정보 갱신",
+            items=(
+                "버전·릴리스 날짜·GUI 안내·웹사이트·사용설명서를 V26.1014 기준으로 동기화",
+                "Ultralytics 8.4.177과 PyTorch 2.14.1·torchvision 0.29.1(CUDA 13.2) 환경에서 GPU 추론 검증",
+                "개발 환경의 FastAPI·Streamlit 의존성 충돌 해소 및 패키지 호환성 확인",
+            ),
+        ),
         ChangelogSection(
             date="2026.09.08",
             title="V26.0908 배포 아이콘과 실행별 결과 폴더 개선",

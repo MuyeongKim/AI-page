@@ -48,14 +48,14 @@ npm test
 버전처럼 보이지 않도록 이전 버전 기록으로 표시하며, 사진 속 탐지 수치는 성능 보증으로
 사용하지 않습니다.
 
-현재 실행 화면은 `docs/images/manual-main-V26.0908.png`의 Windows 화면입니다.
+현재 실행 화면은 `docs/images/manual-main-V26.1014.png`의 Windows 화면입니다.
 사용설명서와 같은 원본을 Astro에서 직접 가져오며, 이전 시연 사진과 구분해
 입력·실행·결과 확인 순서를 설명합니다. GUI를 바꾸면 실제 실행 화면도 함께 갱신하고
 개인 파일 경로나 인증 정보가 포함되지 않았는지 확인합니다.
 
 ## 사용설명서와 버전 갱신
 
-`output/pdf/Stay-Up-AI-사용설명서-V26.0908.pdf`를 ‘사용설명서 보기’와 ‘PDF 다운로드’로
+`output/pdf/Stay-Up-AI-사용설명서-V26.1014.pdf`를 ‘사용설명서 보기’와 ‘PDF 다운로드’로
 제공합니다. 사진·영상 실행마다 시작 시각별 새 결과 폴더를 만들며, **작업 결과 →
 저장 폴더 열기**로 확인하는 흐름을 화면 설명과 FAQ에 반영했습니다. Windows 배포본의
 공개 여부는 `latest_version.json`의 다운로드 상태를 계속 따릅니다.
@@ -157,7 +157,7 @@ token이 만료되거나 노출된 경우에는 즉시 폐기하고 새 token으
 
 ## Windows 배포본 공개
 
-현재 `V26.0908`은 [Google Drive의 Windows 배포 ZIP](https://drive.google.com/file/d/1nrEi7MmLmVYaYK33hloeHfGYxx5tmjcV/view?usp=sharing)에 연결되어 있습니다. 실제 내려받은 파일에서 크기와 SHA-256을 계산해 루트 `latest_version.json`에 반영했습니다. 웹은 이 피드로 다운로드 버튼과 파일 정보를 표시하며, ZIP 배포본에는 전체 압축 해제 후 실행 파일과 구성 폴더를 함께 보관하도록 안내합니다.
+현재 `V26.1014`의 Windows 배포본은 준비 중(`preparing`)입니다. 이전 `V26.0908`의 Google Drive ZIP을 새 버전 배포본으로 연결하지 않습니다. 웹은 루트 `latest_version.json`의 상태에 따라 다운로드 준비 안내를 표시하며, 새 배포 파일을 검증해 등록하면 다운로드 버튼과 파일 정보를 표시합니다. ZIP 배포본에는 전체 압축 해제 후 실행 파일과 구성 폴더를 함께 보관하도록 안내합니다.
 
 새 버전으로 올리면 `python scripts/export_release.py`가 이전 배포 링크를 자동으로
 폐기하고 `preparing` 상태로 초기화합니다. EXE 또는 ZIP 배포본을 Google Drive에
@@ -167,7 +167,7 @@ token이 만료되거나 노출된 경우에는 즉시 폐기하고 새 token으
 
 ```bash
 python scripts/export_release.py \
-  --download-file '/path/to/AI객체탐지프로그램 V26.0908(디렉토리).zip' \
+  --download-file '/path/to/AI객체탐지프로그램 V26.1014(디렉토리).zip' \
   --download-url https://drive.google.com/file/d/FILE_ID/view
 
 python scripts/export_release.py --check
