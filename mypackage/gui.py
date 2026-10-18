@@ -61,6 +61,7 @@ from mypackage.device import get_preferred_device, is_mps_available
 from mypackage.modern_gui_fixed import ModernUi_MainWindow
 from mypackage.notices import NOTICE_SOURCE_CACHE, NoticeLoadResult, OnlineNoticeLoader
 from mypackage.output_storage import create_run_output_folder, publish_output_files
+from mypackage.photo_input import IMAGE_EXTENSIONS, collect_photo_inputs
 from mypackage.result_view import ResultComparisonDialog
 from mypackage.run_report import write_run_report
 from mypackage.version import CURRENT_VERSION
@@ -75,7 +76,6 @@ from mypackage.video_source import (
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DETECTED_OUTPUT_DIR = PROJECT_ROOT / "detected_files"
-IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".tiff", ".tif"}
 VIDEO_EXTENSIONS = {".mp4", ".mov", ".avi", ".mkv", ".wmv", ".webm"}
 PERSON_AND_VEHICLE_CLASSES = [0, 2, 5, 7]
 PREVIEW_REFRESH_INTERVAL_MS = 50  # 20 FPS; detection and output writing remain unthrottled.
@@ -559,32 +559,18 @@ class DetectionWorker(QThread):
         else:
             raise ValueError("사진 파일 또는 폴더 경로를 확인해 주세요.")
 
-        for source in sources:
+        paths, input_errors = collect_photo_inputs(
+            sources, excluded_roots=[DETECTED_OUTPUT_DIR],
+            should_cancel=lambda: not self.is_running,
+        )
+        self.file_count = len(paths) + len(input_errors)
+        for error in input_errors:
+            if self.is_running:
+                self.record_image_failure(error)
+        for source in paths:
             if not self.is_running:
                 break
-
-            if os.path.isdir(source):
-                files_in_folder = sorted(
-                    str(file)
-                    for file in Path(source).iterdir()
-                    if file.is_file() and file.suffix.lower() in IMAGE_EXTENSIONS
-                )
-                if not files_in_folder:
-                    self.record_image_failure(
-                        f"지원하는 사진이 없는 폴더: {source}"
-                    )
-                for file in files_in_folder:
-                    if not self.is_running:
-                        break
-
-                    self.process_image_attempt(file, detected_files, output_folder)
-
-            elif os.path.isfile(source) and Path(source).suffix.lower() in IMAGE_EXTENSIONS:
-                self.process_image_attempt(source, detected_files, output_folder)
-            else:
-                self.record_image_failure(
-                    f"지원하지 않거나 존재하지 않는 사진 경로: {source}"
-                )
+            self.process_image_attempt(source, detected_files, output_folder)
 
     def process_image_attempt(self, source, detected_files, output_folder):
         """사진 한 건의 시도·성공·실패 수를 기록한다."""
@@ -2014,19 +2000,9 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
             print("폴더가 선택되지 않았습니다.")
 
     def count_image_files(self, folder_path):
-        """폴더 안의 이미지 파일 개수를 반환합니다."""
-        folder = Path(folder_path)
-
-        if folder.is_dir():
-            # 폴더 안에서 이미지 파일 개수를 확인
-            image_files = [
-                file
-                for file in folder.glob("*")
-                if file.is_file() and file.suffix.lower() in IMAGE_EXTENSIONS
-            ]
-            return len(image_files)
-        else:
-            return 0
+        """선택 폴더의 하위 사진을 실제 워커와 같은 규칙으로 셉니다."""
+        paths, _errors = collect_photo_inputs([folder_path], excluded_roots=[DETECTED_OUTPUT_DIR])
+        return len(paths)
 
     def submit(self):
         """실행 버튼 클릭 시 호출 - 스레드 시작"""

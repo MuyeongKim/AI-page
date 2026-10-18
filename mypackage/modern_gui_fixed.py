@@ -378,7 +378,7 @@ class ModernUi_MainWindow(object):
         self.result_summary.setAccessibleName("마지막 작업 결과와 전체 오류 목록")
         self.result_summary.setPlainText(
             "탐지를 마치면 이곳에 결과와 전체 오류 목록이 남습니다.\n"
-            "사진은 원본과 탐지본을 비교하고, 저장 폴더를 바로 열 수 있습니다."
+            "사진은 하위 폴더도 분석하고 원본·탐지본을 비교할 수 있습니다. 저장 폴더도 바로 열 수 있습니다."
         )
         result_layout.addWidget(self.result_summary)
         self.result_files_combo = DeliberateComboBox()
