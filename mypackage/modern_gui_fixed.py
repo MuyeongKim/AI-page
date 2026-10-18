@@ -110,7 +110,7 @@ class ModernUi_MainWindow(object):
         self.comboBox_data.addItems(
             [
                 "선택하세요",
-                "YoloV26_최대(추천)",
+                "YoloV26_최대",
                 "YoloV26_대",
                 "YoloV26_중",
                 "YoloV26_소",
@@ -134,6 +134,14 @@ class ModernUi_MainWindow(object):
             "아직 구현되지 않은 모델입니다. 현재는 선택할 수 없습니다.",
             Qt.ItemDataRole.ToolTipRole,
         )
+        self.comboBox_preset = DeliberateComboBox()
+        self.comboBox_preset.setObjectName("comboBox_preset")
+        self.comboBox_preset.addItems(["직접 설정", "빠른 분석", "균형 분석", "정밀 분석"])
+        self.recommend_preset_button = QPushButton("추천 적용")
+        self.recommend_preset_button.setProperty("utilityAction", True)
+        self.preset_hint = QLabel()
+        self.preset_hint.setWordWrap(True)
+        self.preset_hint.setObjectName("model_hint")
 
         self.label_5 = QLabel("3. 파일 또는 폴더(&P)")
         self.label_5.setObjectName("label_5")
@@ -147,6 +155,10 @@ class ModernUi_MainWindow(object):
         self.pushButton_search_2.setObjectName("pushButton_search_2")
         self.pushButton_search.setEnabled(False)
         self.pushButton_search_2.setEnabled(False)
+        self.selected_files_button = QPushButton("선택 목록")
+        self.selected_files_button.setObjectName("selected_files_button")
+        self.selected_files_button.setProperty("utilityAction", True)
+        self.selected_files_button.setEnabled(False)
 
         self.label_7 = QLabel("4. 실행 옵션(&O)")
         self.label_7.setObjectName("label_7")
@@ -168,7 +180,7 @@ class ModernUi_MainWindow(object):
         )
         self.comboBox_imgsz.setCurrentText("1920(기본값)")
 
-        self.label_8 = QLabel("기본값: 신뢰도 10%, 장치 자동(CUDA/MPS/CPU), 해상도 1920")
+        self.label_8 = QLabel("분석 모드는 모델·해상도만 바꿉니다. 신뢰도와 탐지 대상은 유지됩니다.")
         self.label_8.setObjectName("label_8")
         self.label_8.setWordWrap(True)
         self.model_hint = QLabel("큰 모델은 더 많은 처리 시간과 메모리가 필요합니다.")
@@ -280,6 +292,14 @@ class ModernUi_MainWindow(object):
         settings_layout.addWidget(self.label_4, 1, 0)
         model_column = QVBoxLayout()
         model_column.setSpacing(6)
+        preset_row = QHBoxLayout()
+        preset_caption = QLabel("분석 모드")
+        preset_caption.setBuddy(self.comboBox_preset)
+        preset_row.addWidget(preset_caption)
+        preset_row.addWidget(self.comboBox_preset, 1)
+        preset_row.addWidget(self.recommend_preset_button)
+        model_column.addLayout(preset_row)
+        model_column.addWidget(self.preset_hint)
         model_column.addWidget(self.comboBox_data)
         model_column.addWidget(self.model_hint)
         settings_layout.addLayout(model_column, 1, 1)
@@ -290,7 +310,11 @@ class ModernUi_MainWindow(object):
         path_row.addWidget(self.pushButton_search)
         path_row.addWidget(self.pushButton_search_2)
         settings_layout.addWidget(self.label_5, 2, 0)
-        settings_layout.addLayout(path_row, 2, 1)
+        path_column = QVBoxLayout()
+        path_column.setSpacing(6)
+        path_column.addLayout(path_row)
+        path_column.addWidget(self.selected_files_button, 0, Qt.AlignmentFlag.AlignLeft)
+        settings_layout.addLayout(path_column, 2, 1)
 
         option_row = QHBoxLayout()
         option_row.setSpacing(8)
@@ -412,16 +436,18 @@ class ModernUi_MainWindow(object):
     def retranslateUi(self, MainWindow):
         self.plainTextEdit_2.setPlainText(
             "1. 입력 소스에서 외부영상, 사진, 영상 중 하나를 선택합니다.\n\n"
-            "2. 탐지 모델을 선택합니다. 최대 모델은 시간과 메모리를 많이 사용합니다. "
-            "처리가 느리면 작은 모델과 낮은 분석 해상도를 직접 선택할 수 있습니다.\n\n"
+            "2. 탐지 모델을 직접 선택하거나 빠른·균형·정밀 분석 모드를 선택합니다. "
+            "추천 적용은 현재 장치에 맞는 모드를 적용합니다. 최대 모델은 시간과 메모리를 많이 사용합니다.\n\n"
             "3. 사진/영상은 파일 또는 폴더를 선택하고, "
             "외부영상(캡처보드)은 장치 번호를 입력합니다. "
-            "비워두면 0번 장치를 사용합니다.\n\n"
+            "비워두면 0번 장치를 사용합니다. 여러 사진은 선택 목록에서 확인·제외할 수 있습니다.\n\n"
             "4. 최소 신뢰도, 실행 장치, 분석 해상도를 확인하고 탐지 시작을 누릅니다. "
             "신뢰도가 낮으면 후보가 늘지만 오탐도 늘 수 있습니다.\n\n"
             "5. 진행 창에서 단계와 경과시간을 확인합니다. Esc도 취소 요청으로 처리됩니다.\n\n"
             "6. 작업 결과 탭에서 전체 오류·저장 파일을 다시 확인합니다. "
-            "사진은 원본과 비교할 수 있습니다. 이 요약은 앱을 종료하면 지워집니다."
+            "사진은 원본과 동기 확대·이동하며 비교할 수 있습니다. "
+            "실행 폴더의 run_summary.json에 설정·상태·오류가 기록됩니다. "
+            "모델 준비에 실패하거나 분석 시작 전에 취소한 작업은 폴더와 기록을 만들지 않습니다."
         )
 
         self.plainTextEdit.setPlainText(
@@ -442,6 +468,24 @@ class ModernUi_MainWindow(object):
         self.label_10.setBuddy(self.radioButton_all)
 
         accessibility = (
+            (
+                self.comboBox_preset,
+                "분석 모드",
+                "빠른·균형·정밀 분석을 선택하면 모델과 해상도를 함께 적용합니다.",
+                "신뢰도와 탐지 대상은 유지합니다. 필요하면 모델과 해상도를 직접 바꿀 수 있습니다.",
+            ),
+            (
+                self.recommend_preset_button,
+                "현재 장치 추천 모드 적용",
+                "CPU는 빠른 분석, GPU와 MPS는 균형 분석을 적용합니다.",
+                "현재 장치에 맞는 시작 설정입니다. 실제 처리 속도와 결과를 확인하세요.",
+            ),
+            (
+                self.selected_files_button,
+                "선택한 사진 목록 확인",
+                "선택한 사진 전체 경로를 확인하고 개별 항목을 제외합니다.",
+                "원본 파일을 삭제하지 않고 탐지할 목록만 변경합니다.",
+            ),
             (
                 self.comboBox_source,
                 "입력 소스",
@@ -727,7 +771,7 @@ class ModernUi_MainWindow(object):
             padding: 0 18px;
         }
 
-        QFrame#resultCard QPushButton {
+        QFrame#resultCard QPushButton, QPushButton[utilityAction="true"] {
             min-height: 38px;
             padding: 0 10px;
             border: 1px solid #c1d2ce;
@@ -739,6 +783,9 @@ class ModernUi_MainWindow(object):
 
         QFrame#resultCard QPushButton:disabled { color: #6b7280; background: #e5e7eb; }
         QFrame#resultCard QPushButton:focus { border: 2px solid #0f766e; }
+        QPushButton[utilityAction="true"]:hover { background: #dff0ea; }
+        QPushButton[utilityAction="true"]:focus { border: 2px solid #0f766e; }
+        QPushButton[utilityAction="true"]:disabled { color: #6b7280; background: #e5e7eb; }
 
         QPushButton#pushButton_enter {
             background: #0f766e;

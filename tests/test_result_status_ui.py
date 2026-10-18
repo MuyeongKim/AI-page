@@ -131,6 +131,22 @@ def test_capture_disconnect_summary_reports_frames_and_warning(window, monkeypat
     assert "처리 프레임: 42개" in message
 
 
+def test_cancelled_run_keeps_report_failure_visible_in_result_tab(window, monkeypatch):
+    monkeypatch.setattr(gui.QMessageBox, "information", lambda *_args: None)
+    warning = "실행 요약(run_summary.json)을 저장하지 못했습니다: 디스크 공간 부족"
+    window.present_detection_result(
+        _base_result(status=gui.DETECTION_STATUS_CANCELLED, report_warning=warning)
+    )
+    assert warning in window.result_summary.toPlainText()
+
+
+def test_result_tab_exposes_saved_report_path(window, monkeypatch):
+    monkeypatch.setattr(gui.QMessageBox, "warning", lambda *_args: None)
+    report_path = "/tmp/results/run_summary.json"
+    window.display_results_new(_base_result(report_path=report_path))
+    assert f"실행 기록: {report_path}" in window.result_summary.toPlainText()
+
+
 def test_native_thread_finish_prefers_structured_failure_result(window, monkeypatch):
     result = _base_result(
         detected_files=[],

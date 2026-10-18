@@ -33,6 +33,7 @@ import sys
 import threading
 import time
 from collections import deque  # 메모리 효율적인 FPS 버퍼용
+from datetime import datetime
 from pathlib import Path
 from uuid import uuid4
 
@@ -61,6 +62,9 @@ from mypackage.modern_gui_fixed import ModernUi_MainWindow
 from mypackage.notices import NOTICE_SOURCE_CACHE, NoticeLoadResult, OnlineNoticeLoader
 from mypackage.output_storage import create_run_output_folder, publish_output_files
 from mypackage.result_view import ResultComparisonDialog
+from mypackage.run_report import write_run_report
+from mypackage.version import CURRENT_VERSION
+from mypackage.selected_files import SelectedFilesDialog
 from mypackage.video_source import (
     CAPTURE_BOARD_SOURCE,
     VIDEO_FILE_SOURCE,
@@ -94,7 +98,7 @@ NOTICE_KIND_LABELS = {
 
 
 def resolve_model_source(model_source):
-    """Resolve bundled models from the project root and preserve download aliases."""
+    """Resolve source/bundled models independently of the working directory."""
     if not model_source:
         raise ValueError("탐지 모델을 선택해 주세요.")
 
@@ -105,6 +109,13 @@ def resolve_model_source(model_source):
     bundled_candidate = PROJECT_ROOT / candidate
     if bundled_candidate.exists():
         return str(bundled_candidate)
+
+    # PyInstaller stores package __file__ paths under _internal (or _MEIPASS),
+    # while a directory distribution can ship its weights beside the EXE.
+    if getattr(sys, "frozen", False):
+        executable_candidate = Path(sys.executable).resolve().parent / candidate
+        if executable_candidate.is_file():
+            return str(executable_candidate)
 
     # Ultralytics model aliases such as yolo11n.pt may be downloaded on demand.
     return str(model_source)
@@ -384,6 +395,7 @@ class DetectionWorker(QThread):
         self.reported_video_frame_count = None
         self.written_frame_count = 0
         self._video_output_expected_frames = None
+        self.resolved_model_source = None
 
     def run(self):
         start_time = time.time()
@@ -399,7 +411,8 @@ class DetectionWorker(QThread):
             # 모델 로드
             self.stage_signal.emit(f"모델 준비 중: {self.datasize}", 0, 0)
             self.log_signal.emit(f"모델 로딩 중: {self.datasize}")
-            self.model = YOLO(resolve_model_source(self.datasize))
+            self.resolved_model_source = resolve_model_source(self.datasize)
+            self.model = YOLO(self.resolved_model_source)
 
             if not self.is_running:
                 self.log_signal.emit("모델 로딩 후 취소 요청을 확인했습니다.")
@@ -435,15 +448,31 @@ class DetectionWorker(QThread):
             if self.is_running:
                 self.error_signal.emit(fatal_error)
         finally:
+            finished_time = time.time()
+            inputs = self.juso
+            if isinstance(inputs, (list, tuple)):
+                inputs = [str(path) for path in inputs]
+            elif isinstance(inputs, os.PathLike):
+                inputs = str(inputs)
             final_result = {
+                "app_version": CURRENT_VERSION,
+                "started_at": datetime.fromtimestamp(start_time).astimezone().isoformat(),
+                "finished_at": datetime.fromtimestamp(finished_time).astimezone().isoformat(),
                 "source": self.source,
+                "inputs": inputs,
+                "model": str(self.datasize) if self.datasize is not None else None,
+                "resolved_model_source": self.resolved_model_source,
+                "confidence": self.percentage,
+                "image_size": self.imgsz,
+                "device": self.device,
                 "image_count": self.file_count if self.source == "사진" else 0,
                 "detected_files": detected_files,
                 "original_files": list(self.original_files),
                 "output_files": list(self.output_files),
                 "output_folder": str(output_folder) if output_folder is not None else None,
                 "folder_status": folder_status,
-                "execution_time": time.time() - start_time,
+                "execution_time": finished_time - start_time,
+                "execution_time_unit": "seconds",
                 "total_people": self.total_people_detected,
                 "total_cars": self.total_cars_detected,
                 "processed_count": self.processed_count,
@@ -461,7 +490,20 @@ class DetectionWorker(QThread):
                 "only_person": self.only_person,
                 "only_car": self.only_car,
                 "classes_to_detect": list(self.classes_to_detect or []),
+                "report_path": None,
+                "report_warning": None,
             }
+            if output_folder is not None:
+                try:
+                    final_result["report_path"] = str((output_folder / "run_summary.json").resolve())
+                    write_run_report(output_folder, final_result)
+                except Exception as error:
+                    warning = f"실행 요약(run_summary.json)을 저장하지 못했습니다: {error}"
+                    final_result["report_path"] = None
+                    final_result["report_warning"] = warning
+                    self.warnings.append(warning)
+                    final_result["warnings"] = list(self.warnings)
+                    self.log_signal.emit(warning)
             self.finished_signal.emit(final_result)
 
             # The model belongs to the worker, so release it in the worker lifecycle.
@@ -707,13 +749,15 @@ class DetectionWorker(QThread):
                 if not out.isOpened():
                     raise RuntimeError("탐지 결과 영상을 저장할 수 없습니다.")
 
-            fps_buffer = deque(maxlen=10)
+            model_times_ms = deque(maxlen=10)
+            completed_loop_times = deque(maxlen=10)
             self.log_signal.emit("실시간 미리보기를 별도 창에 표시합니다.")
             stage_message = "영상 분석 중" if should_save_video else "외부 영상 분석 중"
             self.stage_signal.emit(stage_message, 0, reported_frame_count or 0)
             last_stage_update = time.monotonic()
 
             while self.is_running:
+                frame_started_at = time.perf_counter()
                 ret, frame = cap.read()
                 if not ret:
                     break
@@ -754,15 +798,22 @@ class DetectionWorker(QThread):
                     self.total_cars_detected = max(self.total_cars_detected, car_count)
                     had_detection = had_detection or person_count > 0 or car_count > 0
 
-                    # FPS 계산
+                    # Model timing excludes capture, plotting, preview and writing.
                     frame_time_ms = sum(result.speed.values())
-                    if frame_time_ms > 0:
-                        fps_current = 1000 / frame_time_ms
-                        fps_buffer.append(fps_current)
-                        avg_fps = np.mean(fps_buffer)
-                        fps_text = f"FPS: {avg_fps:.2f}"
+                    if math.isfinite(frame_time_ms) and frame_time_ms > 0:
+                        model_times_ms.append(frame_time_ms)
+                        model_fps = 1000 / np.mean(model_times_ms)
+                        model_fps_text = f"Model est. FPS: {model_fps:.2f}"
                     else:
-                        fps_text = "FPS: N/A"
+                        model_fps_text = "Model est. FPS: N/A"
+                    # Only completed frames can include their own preview/write
+                    # overhead. The first frame therefore has no loop FPS yet.
+                    if completed_loop_times:
+                        loop_fps = 1 / np.mean(completed_loop_times)
+                        loop_fps_text = f"Loop FPS (prev): {loop_fps:.2f}"
+                    else:
+                        loop_fps_text = "Loop FPS (prev): N/A"
+                    fps_text = f"{model_fps_text}\n{loop_fps_text}"
 
                     # 텍스트 그리기 (간소화)
                     self.draw_info(im_array, fps_text, person_count, car_count)
@@ -794,6 +845,9 @@ class DetectionWorker(QThread):
                 if frame_counter % 100 == 0:
                     gc.collect()
                     clear_torch_cache(self.device)
+                elapsed_frame_seconds = time.perf_counter() - frame_started_at
+                if math.isfinite(elapsed_frame_seconds) and elapsed_frame_seconds > 0:
+                    completed_loop_times.append(elapsed_frame_seconds)
 
             self.video_frame_count = frame_counter
             self.written_frame_count = written_frame_count
@@ -976,9 +1030,12 @@ class DetectionWorker(QThread):
     def draw_info(self, img, fps_text, person_count, car_count):
         """화면에 정보 표시"""
         font = cv2.FONT_HERSHEY_SIMPLEX
-        cv2.putText(img, fps_text, (10, 30), font, 0.7, (0, 255, 0), 2)
-        cv2.putText(img, f"Person: {person_count}", (10, 60), font, 0.7, (255, 255, 255), 2)
-        cv2.putText(img, f"Car: {car_count}", (10, 90), font, 0.7, (255, 255, 255), 2)
+        lines = fps_text.splitlines()
+        for index, line in enumerate(lines):
+            cv2.putText(img, line, (10, 30 + index * 30), font, 0.7, (0, 255, 0), 2)
+        next_line = 30 + len(lines) * 30
+        cv2.putText(img, f"Person: {person_count}", (10, next_line), font, 0.7, (255, 255, 255), 2)
+        cv2.putText(img, f"Car: {car_count}", (10, next_line + 30), font, 0.7, (255, 255, 255), 2)
 
     def file_copy(self, source, result, output_folder):
         """Stage both photo files, then publish them with one collision-free suffix."""
@@ -1052,6 +1109,7 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
         self._close_after_gps = False
         self._last_detection_result = None
         self._comparison_dialog = None
+        self._applying_preset = False
         self._preview_frame_lock = threading.Lock()
         self._pending_preview_frame = None
         self._preview_accepting_frames = False
@@ -1070,6 +1128,9 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
         self.pushButton_close.clicked.connect(self.exit_application)
         self.pushButton_search.clicked.connect(self.browse_files)
         self.pushButton_search_2.clicked.connect(self.browse_folders)
+        self.selected_files_button.clicked.connect(self.review_selected_files)
+        self.comboBox_preset.currentIndexChanged.connect(self.apply_analysis_preset)
+        self.recommend_preset_button.clicked.connect(self.apply_recommended_preset)
         self.pushButton_enter.clicked.connect(self.submit)
         self.open_output_button.clicked.connect(self.open_output_folder)
         self.open_result_button.clicked.connect(self.open_selected_result)
@@ -1099,6 +1160,7 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
         self.memory_monitor = MemoryMonitor()
         self.memory_monitor.log_memory_usage("GUI 초기화 완료")
         self.sync_control_defaults()
+        self.update_preset_hint()
         self.update_detection_target()
         self.update_action_states()
         self.set_main_status("입력 소스와 탐지 모델을 선택해 주세요.")
@@ -1210,6 +1272,10 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
 
     def remember_detection_result(self, result, message):
         self._last_detection_result = dict(result)
+        if result.get("report_path"):
+            message += f"\n\n실행 기록: {result['report_path']}"
+        elif result.get("report_warning") and result["report_warning"] not in message:
+            message += f"\n\n{result['report_warning']}"
         self.result_summary.setPlainText(message)
         self.result_files_combo.clear()
         originals = result.get("original_files", [])
@@ -1434,6 +1500,8 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
             self.comboBox_percentage,
             self.comboBox_device,
             self.comboBox_imgsz,
+            self.comboBox_preset,
+            self.recommend_preset_button,
         ]
         for name in (
             "radioButton_all",
@@ -1454,6 +1522,14 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
             not self._processing and self.source in {"사진", VIDEO_FILE_SOURCE}
         )
         self.pushButton_search_2.setEnabled(not self._processing and self.source == "사진")
+        selected_count = len(self.juso) if isinstance(self.juso, (list, tuple)) else 0
+        self.selected_files_button.setVisible(self.source == "사진")
+        self.selected_files_button.setEnabled(
+            not self._processing and self.source == "사진" and selected_count > 0
+        )
+        self.selected_files_button.setText(
+            f"선택 목록 · {selected_count}장" if selected_count else "선택 목록"
+        )
         self.pushButton_enter.setEnabled(
             not self._processing and bool(self.datasize) and self.input_is_ready()
         )
@@ -1701,6 +1777,7 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
         return reply == QMessageBox.Yes
 
     def update_source(self, index):
+        self.lineEdit_juso.setReadOnly(False)
         selection = self.comboBox_source.itemText(index)
         if selection == "선택하세요":
             self.source = None
@@ -1739,6 +1816,7 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
         self.update_action_states()
 
     def update_datasize(self, index):
+        self.mark_custom_preset()
         selection = self.comboBox_data.itemText(index)
         if selection == "선택하세요":
             self.datasize = None
@@ -1746,7 +1824,7 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
             return
         else:
             size_dict = {
-                "YoloV26_최대(추천)": "yolo26x.pt",
+                "YoloV26_최대": "yolo26x.pt",
                 "YoloV26_대": "yolo26l.pt",
                 "YoloV26_중": "yolo26m.pt",
                 "YoloV26_소": "yolo26s.pt",
@@ -1764,6 +1842,7 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
         self.update_action_states()
 
     def option_imgsz(self, index):
+        self.mark_custom_preset()
         selection = self.comboBox_imgsz.itemText(index)
         if selection == "해상도":
             self.imgsz = 1920
@@ -1818,10 +1897,49 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
         automatic = selection in {"자동", "사용장치"}
         prefix = "자동 감지 장치" if automatic else "선택 장치"
         self.set_main_status(f"{prefix}: {self.device.upper()}")
+        self.update_preset_hint()
+        self.update_action_states()
+
+    def update_preset_hint(self):
+        recommended = "빠른 분석" if self.device == "cpu" else "균형 분석"
+        self.preset_hint.setText(
+            f"{self.device.upper()} 시작 추천: {recommended} · 추천 적용을 눌러 변경하세요."
+        )
+
+    def mark_custom_preset(self):
+        if not self._applying_preset:
+            blocked = self.comboBox_preset.blockSignals(True)
+            self.comboBox_preset.setCurrentIndex(0)
+            self.comboBox_preset.blockSignals(blocked)
+
+    def apply_recommended_preset(self):
+        recommended = "빠른 분석" if self.device == "cpu" else "균형 분석"
+        self.comboBox_preset.setCurrentText(recommended)
+
+    def apply_analysis_preset(self, _index):
+        # Explicit user selection changes only model and image size. Detection
+        # targets, confidence and startup defaults remain under user control.
+        presets = {
+            "빠른 분석": ("YoloV26_최소", "640"),
+            "균형 분석": ("YoloV26_소", "1280"),
+            "정밀 분석": ("YoloV26_최대", "1920(기본값)"),
+        }
+        preset = presets.get(self.comboBox_preset.currentText())
+        if preset is None:
+            return
+        self._applying_preset = True
+        try:
+            model, image_size = preset
+            self.comboBox_data.setCurrentText(model)
+            self.comboBox_imgsz.setCurrentText(image_size)
+        finally:
+            self._applying_preset = False
         self.update_action_states()
 
     def update_juso(self, text):
         """사용자가 lineEdit_juso에 입력한 텍스트를 저장하는 함수"""
+        if self.lineEdit_juso.isReadOnly():
+            return
         normalized_text = text.strip()
 
         if normalize_source_name(self.source) == CAPTURE_BOARD_SOURCE:
@@ -1829,6 +1947,26 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
         else:
             self.juso = text if normalized_text else None
         self.update_action_states()
+
+    def set_selected_files(self, paths):
+        paths = list(dict.fromkeys(str(path) for path in paths))
+        self.juso = paths or None
+        self.file_count = len(paths)
+        blocked = self.lineEdit_juso.blockSignals(True)
+        self.lineEdit_juso.setReadOnly(len(paths) > 1)
+        self.lineEdit_juso.setText(
+            f"사진 {len(paths)}장 선택됨" if len(paths) > 1 else (paths[0] if paths else "")
+        )
+        self.lineEdit_juso.blockSignals(blocked)
+        self.update_action_states()
+
+    def review_selected_files(self):
+        if self._processing or self.source != "사진" or not isinstance(self.juso, (list, tuple)):
+            return
+        dialog = SelectedFilesDialog(self.juso, self)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            self.set_selected_files(dialog.selected_paths())
+        dialog.deleteLater()
 
     def browse_files(self):
         if self.source not in {"사진", VIDEO_FILE_SOURCE}:
@@ -1852,14 +1990,7 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
             )
 
         if file_paths:
-            self.lineEdit_juso.setText(", ".join(file_paths))
-            self.juso = file_paths
-            self.file_count = len(self.juso)
-            if len(self.juso) == 1:
-                print(self.juso)
-            else:
-                print(f"선택한 이미지 파일 수: {len(self.juso)}개")
-            self.update_action_states()
+            self.set_selected_files(file_paths)
 
     def browse_folders(self):
         if self.source != "사진":
@@ -1870,6 +2001,7 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
         if folder_path:
             folder_path = Path(folder_path).as_posix()  # 슬래시(/)로 경로 변경
             folder_path += "/"  # 마지막 슬래시 추가
+            self.lineEdit_juso.setReadOnly(False)
             self.lineEdit_juso.setText(folder_path)
             self.juso = Path(folder_path)
             self.file_count = self.count_image_files(folder_path)
