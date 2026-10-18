@@ -58,12 +58,13 @@ from ultralytics import YOLO
 
 from mypackage import gps2, start
 from mypackage.device import get_preferred_device, is_mps_available
+from mypackage.detection_records import append_result_candidates, read_photo_metadata
 from mypackage.modern_gui_fixed import ModernUi_MainWindow
 from mypackage.notices import NOTICE_SOURCE_CACHE, NoticeLoadResult, OnlineNoticeLoader
 from mypackage.output_storage import create_run_output_folder, publish_output_files
 from mypackage.photo_input import IMAGE_EXTENSIONS, collect_photo_inputs
 from mypackage.result_view import ResultComparisonDialog
-from mypackage.run_report import write_run_report
+from mypackage.run_report import write_json_file, write_run_report
 from mypackage.version import CURRENT_VERSION
 from mypackage.selected_files import SelectedFilesDialog
 from mypackage.video_source import (
@@ -396,6 +397,7 @@ class DetectionWorker(QThread):
         self.written_frame_count = 0
         self._video_output_expected_frames = None
         self.resolved_model_source = None
+        self.photo_records = []
 
     def run(self):
         start_time = time.time()
@@ -492,8 +494,20 @@ class DetectionWorker(QThread):
                 "classes_to_detect": list(self.classes_to_detect or []),
                 "report_path": None,
                 "report_warning": None,
+                "detections_path": None,
             }
             if output_folder is not None:
+                if self.source == "사진":
+                    try:
+                        final_result["detections_path"] = write_json_file(
+                            output_folder / "detections.json",
+                            {"schema_version": 1, "app_version": CURRENT_VERSION,
+                             "status": final_status, "photos": self.photo_records},
+                        )
+                    except Exception as error:
+                        self.warnings.append(f"사진별 탐지 기록 저장 실패: {error}")
+                        self.log_signal.emit(self.warnings[-1])
+                        final_result["warnings"] = list(self.warnings)
                 try:
                     final_result["report_path"] = str((output_folder / "run_summary.json").resolve())
                     write_run_report(output_folder, final_result)
@@ -609,6 +623,12 @@ class DetectionWorker(QThread):
 
     def process_single_file(self, source, detected_files, output_folder):
         """단일 파일 YOLO 처리"""
+        photo = {
+            "id": f"photo-{len(self.photo_records) + 1:06d}", "source": str(source),
+            "status": "failed", "original_file": None, "detected_file": None,
+            "image_size": None, "coordinate_space": "exif_oriented_pixels",
+            "people": [], "vehicles": 0, "error": None, **read_photo_metadata(source),
+        }
         try:
             results = self.model(
                 source,
@@ -641,6 +661,7 @@ class DetectionWorker(QThread):
                     )
                     source_people += people_count
                     source_cars += car_count
+                    append_result_candidates(photo, result)
 
                     if (people_count > 0 or car_count > 0) and not source_detected:
                         original_path, detected_path = self.file_copy(source, result, output_folder)
@@ -648,6 +669,8 @@ class DetectionWorker(QThread):
                         self.original_files.append(original_path)
                         if detected_path:
                             self.output_files.append(detected_path)
+                        photo["original_file"] = Path(original_path).name
+                        photo["detected_file"] = Path(detected_path).name if detected_path else None
                         source_detected = True
                 finally:
                     del result
@@ -657,13 +680,18 @@ class DetectionWorker(QThread):
 
             self.total_people_detected += source_people
             self.total_cars_detected += source_cars
+            photo["vehicles"] = source_cars
+            photo["status"] = "completed"
             return True
 
         except Exception as e:
             error_message = f"파일 처리 오류 ({source}): {e}"
             self.errors.append(error_message)
             self.log_signal.emit(error_message)
+            photo["error"] = error_message
             return False
+        finally:
+            self.photo_records.append(photo)
 
     def process_video(self, output_folder):
         """비디오/캡처보드를 처리하고 최대 동시 탐지 수를 집계한다."""

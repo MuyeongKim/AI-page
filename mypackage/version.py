@@ -49,6 +49,15 @@ CURRENT_RELEASE = ReleaseInfo(
             ),
         ),
         ChangelogSection(
+            date="2026.10.18",
+            title="현장 수색 1순위 소스 개선 · 배포 전",
+            items=(
+                "SD카드 하위 폴더 사진 분석과 중복·결과 폴더 재분석 방지",
+                "사진·사람 후보별 ID와 좌표·신뢰도·촬영정보를 detections.json에 기록",
+                "미탐지·실패·메타데이터 누락을 구분하고 원본·기존 탐지 설정 유지",
+            ),
+        ),
+        ChangelogSection(
             date="2026.10.07",
             title="소스 개선 · EXE 재빌드 전",
             items=(

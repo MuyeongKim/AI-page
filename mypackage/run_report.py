@@ -8,13 +8,17 @@ from uuid import uuid4
 
 def write_run_report(output_folder, report):
     """Atomically publish UTF-8 JSON; leave existing results intact on failure."""
-    folder = Path(output_folder)
-    destination = folder / "run_summary.json"
-    temporary = folder / f".run_summary.{uuid4().hex}.tmp"
+    return write_json_file(Path(output_folder) / "run_summary.json", {"schema_version": 1, **report})
+
+
+def write_json_file(destination, document):
+    """Publish a local JSON document without replacing the previous file on failure."""
+    destination = Path(destination)
+    temporary = destination.with_name(f".{destination.stem}.{uuid4().hex}.tmp")
     try:
         with temporary.open("x", encoding="utf-8") as stream:
             json.dump(
-                {"schema_version": 1, **report},
+                document,
                 stream,
                 ensure_ascii=False,
                 indent=2,
