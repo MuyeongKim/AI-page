@@ -72,6 +72,7 @@
 - C1: 사진·후보별 기록, 무탐지·실패·메타데이터 오류·안전한 읽기 검증을 구현했습니다. 관련 회귀검사 39개와 Ruff 통과.
 - C3: 후보 주변 원본 확대 이미지와 원자 저장·쓰기 실패 보존 검증 완료(관련 검사 20개 통과).
 - C2: 후보별 키보드 판정·재열기·동시 편집 보존·저장 실패 안내를 구현했습니다. 관련 검사 33개 통과. 560px 화면을 렌더링해 버튼 표시와 후보 확대를 확인했습니다.
+- C4 사진 보고서: 자동 생성·판정 후 갱신·전체 후보 부록·문구 이스케이프·원자 저장 보존을 검증했습니다(관련 검사 23개). 가상 입력을 실제 Chromium으로 렌더링하고 인쇄 레이아웃을 확인했습니다.
 
 ## 3. 기능 목록
 
@@ -312,7 +313,8 @@ CSV는 UTF-8 BOM으로 저장합니다. 칸 이름은 다음과 같습니다.
       "confidence": 0.42,
       "people": 1,
       "review": "person",
-      "crosscheck": "confirmed",
+      "locationKind": "photo_gps",
+      "crosscheck": "uncertain",
       "file": "detected_0003.jpg",
       "thumbnail": "data:image/jpeg;base64,..."
     }
@@ -322,7 +324,8 @@ CSV는 UTF-8 BOM으로 저장합니다. 칸 이름은 다음과 같습니다.
 ```
 
 - `source` 값: `photo` | `live`
-- `crosscheck` 값: `confirmed`(실시간·사진 모두) | `photo_missed`(실시간만) | `live_missed`(사진만) | `out_of_range` | `null`
+- `crosscheck` 값: `uncertain`(대응 불확실) | `unmatched`(매칭 없음) | `confirmed` | `photo_missed` | `live_missed` | `out_of_range` | `null`. 뒤의 네 판정은 동일 장면·범위·대응을 확인한 근거가 있을 때만 사용합니다.
+- `locationKind: photo_gps`는 후보 사진의 촬영 위치입니다. `coverage`의 점도 촬영 위치 기록이며 수색 범위·완료를 확정하지 않습니다.
 - 실시간 후보는 L4 크로스체크 전이라 위경도가 없을 수 있습니다. 이때는 `lat`·`lon`을 `null`로 두고, 상황판은 지도 대신 목록에만 표시합니다.
 
 ## 5. 도전 과제 (본선 이후 검토)

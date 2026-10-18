@@ -4,13 +4,15 @@ from collections import Counter
 from pathlib import Path
 
 from PySide6.QtCore import QPointF, Qt, QTimer, Signal
-from PySide6.QtGui import QKeySequence, QShortcut
+from PySide6.QtGui import QDesktopServices, QKeySequence, QShortcut
+from PySide6.QtCore import QUrl
 from PySide6.QtWidgets import QDialog, QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
 
 from mypackage.detection_records import (
     REVIEW_LABELS, asset_path, load_detections, save_photo_review,
 )
 from mypackage.result_view import PhotoPreview, ResultComparisonDialog
+from mypackage.search_report import create_search_report
 
 
 class CandidateReviewDialog(QDialog):
@@ -70,6 +72,11 @@ class CandidateReviewDialog(QDialog):
             self.review_buttons.append(button)
             self._shortcut(key, lambda state=review: self.set_review(state))
         layout.addLayout(judgments)
+        self.report_button = QPushButton("보고서 만들고 열기")
+        self.report_button.setMinimumHeight(36)
+        self.report_button.setAccessibleName("현재 판정으로 오프라인 HTML 보고서를 만들고 열기")
+        self.report_button.clicked.connect(self.open_report)
+        layout.addWidget(self.report_button)
         self.save_status = QLabel("판정은 즉시 기록 파일에 저장합니다. ←/→ 이동, 1/2/3 판정")
         self.save_status.setTextFormat(Qt.TextFormat.PlainText)
         self.save_status.setWordWrap(True)
@@ -169,6 +176,20 @@ class CandidateReviewDialog(QDialog):
             self.changed.emit()
         except Exception as error:
             self.save_status.setText(f"저장 실패 · 판정은 변경되지 않았습니다: {error}")
+            return
+        try:
+            create_search_report(self.path)
+        except Exception as error:
+            self.save_status.setText(f"판정은 저장됨 · 보고서 갱신 실패: {error}")
+
+    def open_report(self):
+        try:
+            path = create_search_report(self.path)
+            if not QDesktopServices.openUrl(QUrl.fromLocalFile(str(path.resolve()))):
+                raise OSError("브라우저를 열지 못했습니다. 저장 폴더에서 보고서를 확인하세요.")
+            self.save_status.setText("현재 판정으로 보고서를 저장했습니다.")
+        except Exception as error:
+            self.save_status.setText(f"보고서 생성·열기 실패: {error}")
 
     def compare(self):
         if not self.entries:

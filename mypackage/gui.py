@@ -69,6 +69,7 @@ from mypackage.result_view import ResultComparisonDialog
 from mypackage.run_report import write_json_file, write_run_report
 from mypackage.version import CURRENT_VERSION
 from mypackage.selected_files import SelectedFilesDialog
+from mypackage.search_report import create_search_report
 from mypackage.video_source import (
     CAPTURE_BOARD_SOURCE,
     VIDEO_FILE_SOURCE,
@@ -497,6 +498,7 @@ class DetectionWorker(QThread):
                 "report_path": None,
                 "report_warning": None,
                 "detections_path": None,
+                "search_report_path": None,
             }
             if output_folder is not None:
                 if self.source == "사진":
@@ -510,6 +512,15 @@ class DetectionWorker(QThread):
                         self.warnings.append(f"사진별 탐지 기록 저장 실패: {error}")
                         self.log_signal.emit(self.warnings[-1])
                         final_result["warnings"] = list(self.warnings)
+                    if final_result["detections_path"]:
+                        try:
+                            final_result["search_report_path"] = str(create_search_report(
+                                final_result["detections_path"], final_result
+                            ).resolve())
+                        except Exception as error:
+                            self.warnings.append(f"후보 보고서 생성 실패: {error}")
+                            final_result["warnings"] = list(self.warnings)
+                            self.log_signal.emit(self.warnings[-1])
                 try:
                     final_result["report_path"] = str((output_folder / "run_summary.json").resolve())
                     write_run_report(output_folder, final_result)
