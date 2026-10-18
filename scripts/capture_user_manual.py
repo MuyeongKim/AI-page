@@ -1,4 +1,4 @@
-"""Capture the current Windows GUI for the versioned user manual."""
+"""Capture the current platform GUI for the versioned user manual."""
 
 from __future__ import annotations
 

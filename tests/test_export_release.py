@@ -28,31 +28,19 @@ def _write_artifact(tmp_path: Path, content: bytes = b"real windows artifact") -
     return artifact
 
 
-def test_current_feed_is_generated_from_current_release_and_has_verified_download():
+def test_current_feed_is_generated_from_current_release_and_prepares_new_download():
     feed_path = PROJECT_ROOT / "latest_version.json"
     with feed_path.open(encoding="utf-8") as stream:
         actual = json.load(stream)
 
-    expected = build_release_feed(actual)
-
-    assert actual == expected
-    assert actual["version"] == CURRENT_RELEASE.version == "26.1014"
-    assert actual["release_date"] == CURRENT_RELEASE.release_date == "2026-10-14"
+    assert actual == build_release_feed(actual)
+    assert actual["version"] == CURRENT_RELEASE.version == "26.1018"
+    assert actual["release_date"] == CURRENT_RELEASE.release_date == "2026-10-18"
     assert actual["changelog"] == current_release_changelog()
-
-    expected_url = (
-        "https://drive.google.com/file/d/"
-        "1xOw_2TIBZdyV4EJml7bFqb4-6TPE-AHE/view?usp=sharing"
-    )
-    assert actual["download_url"] == expected_url
+    assert actual["download_url"] is None
     assert actual["download"] == {
-        "status": "ready",
-        "provider": "google_drive",
-        "platform": "Windows",
-        "filename": "AI객체탐지프로그램 V26.1014(디렉토리).zip",
-        "url": expected_url,
-        "size_bytes": 2187700002,
-        "sha256": "ee27c556380b14c7aaec7e53c915717d8eabb199f267841883c1ee2b6530060c",
+        "status": "preparing", "provider": "google_drive", "platform": "Windows",
+        "filename": None, "url": None, "size_bytes": None, "sha256": None,
     }
 
 

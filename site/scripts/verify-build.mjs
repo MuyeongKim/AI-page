@@ -87,16 +87,16 @@ async function verifyEmittedAsset(assetUrl, sourcePath, label, signature) {
 
 const currentAppImages = markedTags("img", "data-current-app-image");
 if (currentAppImages.length !== 1) {
-  throw new Error("현재 Windows 프로그램 화면은 정확히 한 개 표시해야 합니다.");
+  throw new Error("현재 프로그램 화면은 정확히 한 개 표시해야 합니다.");
 }
 const currentAppAlt = attributeValue(currentAppImages[0], "alt") ?? "";
-if (!currentAppAlt.includes("Windows") || !currentAppAlt.includes(`V${release.version}`)) {
-  throw new Error("현재 프로그램 화면 설명에 Windows와 최신 버전이 표시되지 않았습니다.");
+if (!currentAppAlt.includes("프로그램 화면") || !currentAppAlt.includes(`V${release.version}`)) {
+  throw new Error("현재 프로그램 화면 설명에 화면 종류와 최신 버전이 표시되지 않았습니다.");
 }
 await verifyEmittedAsset(
   attributeValue(currentAppImages[0], "src"),
   resolve(projectRoot, `docs/images/manual-main-V${release.version}.png`),
-  "현재 Windows 프로그램 화면",
+  "현재 프로그램 화면",
   Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
 );
 

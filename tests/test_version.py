@@ -20,11 +20,12 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 def test_current_release_drives_version_title_and_gui_changelog():
     changelog = format_gui_changelog()
 
-    assert CURRENT_VERSION == CURRENT_RELEASE.version == "26.1014"
-    assert CURRENT_RELEASE.release_date == "2026-10-14"
-    assert CURRENT_RELEASE.display_version == "V26.1014"
+    assert CURRENT_VERSION == CURRENT_RELEASE.version == "26.1018"
+    assert CURRENT_RELEASE.release_date == "2026-10-18"
+    assert CURRENT_RELEASE.display_version == "V26.1018"
     assert CURRENT_RELEASE.display_version in CURRENT_RELEASE.window_title
-    assert CURRENT_RELEASE.changelog[0].title == "V26.1014 실행 환경 및 버전 정보 갱신"
+    assert CURRENT_RELEASE.changelog[0].title == "V26.1018 현장 수색·후보 확인과 실행 기록 개선"
+    assert "2026.10.18 V26.1018 현장 수색·후보 확인과 실행 기록 개선" in changelog
     assert "2026.10.14 V26.1014 실행 환경 및 버전 정보 갱신" in changelog
     assert "V26.1014 Windows 배포 ZIP을 Google Drive에 연결" in changelog
     assert "2026.10.07 소스 개선 · EXE 재빌드 전" in changelog
@@ -55,7 +56,7 @@ def test_release_feed_validation_reports_version_drift():
         "release_date": CURRENT_RELEASE.release_date,
     }
 
-    with pytest.raises(ValueError, match=r"version.*26\.1014.*26\.0909"):
+    with pytest.raises(ValueError, match=r"version.*26\.1018.*26\.0909"):
         assert_release_feed_matches_local(mismatched_feed)
 
 

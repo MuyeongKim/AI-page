@@ -35,23 +35,15 @@ class ReleaseInfo:
 
 
 CURRENT_RELEASE = ReleaseInfo(
-    version="26.1014",
-    release_date="2026-10-14",
+    version="26.1018",
+    release_date="2026-10-18",
     changelog=(
         ChangelogSection(
-            date="2026.10.14",
-            title="V26.1014 실행 환경 및 버전 정보 갱신",
-            items=(
-                "버전·릴리스 날짜·GUI 안내·웹사이트·사용설명서를 V26.1014 기준으로 동기화",
-                "Ultralytics 8.4.177과 PyTorch 2.14.1·torchvision 0.29.1(CUDA 13.2) 환경에서 GPU 추론 검증",
-                "개발 환경의 FastAPI·Streamlit 의존성 충돌 해소 및 패키지 호환성 확인",
-                "V26.1014 Windows 배포 ZIP을 Google Drive에 연결하고 크기·SHA-256·ZIP 무결성 검증",
-            ),
-        ),
-        ChangelogSection(
             date="2026.10.18",
-            title="현장 수색 1순위 소스 개선 · 배포 전",
+            title="V26.1018 현장 수색·후보 확인과 실행 기록 개선",
             items=(
+                "사진 선택 목록·동봉 모델 검색·원본 100% 비교·분석 프리셋 개선 통합",
+                "모델 추정 FPS와 실제 처리 FPS 구분 및 run_summary.json 실행 기록 보존",
                 "SD카드 하위 폴더 사진 분석과 중복·결과 폴더 재분석 방지",
                 "사진·사람 후보별 ID와 좌표·신뢰도·촬영정보를 detections.json에 기록",
                 "미탐지·실패·메타데이터 누락을 구분하고 원본·기존 탐지 설정 유지",
@@ -61,6 +53,16 @@ CURRENT_RELEASE = ReleaseInfo(
                 "캡처보드의 별도 알림 기준·음소거와 시간 구간 이벤트·메모·판정 기록 추가",
                 "실시간 JSON·한글 CSV·보고 문구 복사·오프라인 1차 보고서 제공",
                 "승인된 자동·Space 수동 정지 장면 저장과 취소·연결 끊김 시 기록 보존",
+            ),
+        ),
+        ChangelogSection(
+            date="2026.10.14",
+            title="V26.1014 실행 환경 및 버전 정보 갱신",
+            items=(
+                "버전·릴리스 날짜·GUI 안내·웹사이트·사용설명서를 V26.1014 기준으로 동기화",
+                "Ultralytics 8.4.177과 PyTorch 2.14.1·torchvision 0.29.1(CUDA 13.2) 환경에서 GPU 추론 검증",
+                "개발 환경의 FastAPI·Streamlit 의존성 충돌 해소 및 패키지 호환성 확인",
+                "V26.1014 Windows 배포 ZIP을 Google Drive에 연결하고 크기·SHA-256·ZIP 무결성 검증",
             ),
         ),
         ChangelogSection(
