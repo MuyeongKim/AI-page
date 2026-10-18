@@ -172,3 +172,31 @@ def test_native_thread_finish_prefers_structured_failure_result(window, monkeypa
     assert fallback_errors == []
     assert window._pending_detection_error is None
     assert window._pending_detection_result is None
+
+
+@pytest.mark.parametrize('record_name', ['detections.json', 'live_events.json'])
+def test_invalid_record_does_not_destroy_existing_dialog_or_block_next_open(window, tmp_path,
+                                                                         monkeypatch, qapp,
+                                                                         record_name):
+    from mypackage.live_events import LiveEventRecorder, write_live_records
+    from PySide6.QtCore import QCoreApplication, QEvent
+    from shiboken6 import isValid
+    valid, invalid = tmp_path / record_name, tmp_path / 'invalid.json'
+    if record_name == 'live_events.json':
+        write_live_records(tmp_path, LiveEventRecorder().document('26.1018', 'disconnected'))
+    else:
+        valid.write_text('{"schema_version": 1, "photos": []}')
+    invalid.write_text('{bad json')
+    warnings = []
+    monkeypatch.setattr(gui.QMessageBox, 'warning', lambda *args: warnings.append(args[-1]))
+    window.open_candidate_review(valid)
+    previous = window._review_dialog
+    window.open_candidate_review(invalid)
+    QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+    assert isValid(previous)
+    assert window._review_dialog is previous
+    window.open_candidate_review(valid)
+    qapp.processEvents()
+    assert len(warnings) == 1
+    assert window._review_dialog is not previous and isValid(window._review_dialog)
+    window._review_dialog.close()

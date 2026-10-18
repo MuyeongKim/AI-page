@@ -125,3 +125,94 @@ def test_manual_scene_without_people_and_scene_failure_keep_records(tmp_path, mo
     assert event['kind'] == 'manual' and event['max_people'] == 0
     assert len(result['snapshot_files']) == (0 if scene_write_failure else 1)
     assert any('scene disk full' in warning for warning in result['warnings']) is scene_write_failure
+
+
+@pytest.mark.parametrize('ending', ['disconnected', 'cancelled', 'failed'])
+def test_qthread_shutdown_edit_is_reconciled_after_final_drain(tmp_path, monkeypatch, qt_application,
+                                                            ending):
+    import threading
+    import time
+    from PySide6.QtTest import QTest
+    from mypackage.live_review import LiveRecordsWidget
+    from mypackage.live_events import load_live_events
+
+    worker = gui.DetectionWorker({'source': gui.CAPTURE_BOARD_SOURCE, 'juso': 0,
+        'datasize': 'fake.pt', 'device': 'cpu', 'percentage': .1, 'imgsz': 640,
+        'classes_to_detect': [0]})
+    ready, release = threading.Event(), threading.Event()
+    monkeypatch.setattr(worker, 'open_video_capture', lambda _: Capture(frames=2))
+    monkeypatch.setattr(gui, 'DETECTED_OUTPUT_DIR', tmp_path / 'out')
+    monkeypatch.setattr(gui, 'clear_torch_cache', lambda *args: None)
+    monkeypatch.setattr(gui.cv2, 'destroyAllWindows', lambda: None)
+    checkpoint = worker._write_live_checkpoint
+
+    def paused_checkpoint(folder, status='running'):
+        if status != 'running' and not ready.is_set():
+            ready.set()
+            assert release.wait(8), 'test did not release the terminal checkpoint'
+        return checkpoint(folder, status)
+
+    monkeypatch.setattr(worker, '_write_live_checkpoint', paused_checkpoint)
+
+    class Box:
+        cls = np.array(0)
+        conf = np.array(.9)
+
+    class Result:
+        boxes = [Box()]
+        names = {0: 'person'}
+        speed = {'inference': 1}
+
+        def plot(self):
+            return np.zeros((60, 80, 3), dtype=np.uint8)
+
+    calls = []
+
+    def model(*args, **kwargs):
+        calls.append(True)
+        if len(calls) == 2:
+            if ending == 'failed':
+                raise RuntimeError('camera inference failed')
+            if ending == 'cancelled':
+                worker.stop()
+        return [Result()]
+
+    monkeypatch.setattr(gui, 'YOLO', lambda _: model)
+    widget = LiveRecordsWidget()
+    outcomes, accepted = [], []
+    worker.live_event_signal.connect(widget.apply_event)
+    widget.edit_requested.connect(lambda event_id, changes: accepted.append(
+        worker.request_live_edit(event_id, changes)))
+
+    def finished(result):
+        widget.set_finished(result['live_events_path'])
+        outcomes.append(result)
+
+    worker.finished_signal.connect(finished)
+    worker.start()
+    deadline = time.monotonic() + 8
+    try:
+        while (not ready.is_set() or not widget.events) and time.monotonic() < deadline:
+            QTest.qWait(10)
+        assert ready.is_set() and widget.events
+        widget.table.selectRow(0)
+        widget.note_edit.setText('C3 종료 직전 저장 요청')
+        widget.save_note()
+        widget.commit({'review': 'hold'})
+        release.set()
+        while (worker.isRunning() or not outcomes) and time.monotonic() < deadline:
+            QTest.qWait(10)
+        assert outcomes and outcomes[0]['status'] == ending
+        event = load_live_events(outcomes[0]['live_events_path'])['events'][0]
+        assert event['note'] == 'C3 종료 직전 저장 요청' and event['review'] == 'hold'
+        assert accepted == [False, False]  # Sealed queue; final record receives the UI's pending edits.
+        assert worker._live_commands == [] and widget._pending == {}
+        assert widget.note_edit.text() == event['note']
+        assert event['note'] in open(outcomes[0]['live_csv_path'], encoding='utf-8-sig').read()
+        assert event['note'] in open(outcomes[0]['search_report_path'], encoding='utf-8').read()
+    finally:
+        release.set()
+        worker.stop()
+        worker.wait(8000)
+        qt_application.processEvents()
+        widget.close()

@@ -497,6 +497,7 @@ class DetectionWorker(QThread):
         self.snapshot_files = []
         self._live_commands_lock = threading.Lock()
         self._live_commands = []
+        self._live_edits_accepting = True
         self._snapshot_requested = False
         self._last_live_checkpoint = -math.inf
         self._last_live_ui = -math.inf
@@ -626,6 +627,8 @@ class DetectionWorker(QThread):
                             final_result["warnings"] = list(self.warnings)
                             self.log_signal.emit(self.warnings[-1])
                 if self.live_recorder is not None:
+                    commands, _ = self._take_live_commands(seal=True)
+                    self._apply_live_edits(commands)
                     self.live_recorder.close(final_status)
                     if self.live_recorder.events and self.live_recorder.events[-1][
                             "termination"] == "failed" and final_status == "cancelled":
@@ -680,7 +683,10 @@ class DetectionWorker(QThread):
 
     def request_live_edit(self, event_id, changes):
         with self._live_commands_lock:
+            if not self._live_edits_accepting:
+                return False
             self._live_commands.append((event_id, dict(changes)))
+            return True
 
     def _live_warning(self, message):
         if message not in self.warnings:
@@ -688,8 +694,10 @@ class DetectionWorker(QThread):
             self.log_signal.emit(message)
             self.live_warning_signal.emit(message)
 
-    def _take_live_commands(self):
+    def _take_live_commands(self, seal=False):
         with self._live_commands_lock:
+            if seal:
+                self._live_edits_accepting = False
             commands, snapshot = self._live_commands, self._snapshot_requested
             self._live_commands = []
             self._snapshot_requested = False
@@ -1172,7 +1180,7 @@ class DetectionWorker(QThread):
             self.video_frame_count = frame_counter
             self.written_frame_count = written_frame_count
             if self.live_recorder is not None:
-                commands, pending_snapshot = self._take_live_commands()
+                commands, pending_snapshot = self._take_live_commands(seal=True)
                 changed = self._apply_live_edits(commands)
                 if pending_snapshot:
                     self._live_warning("새 프레임을 받기 전에 종료되어 수동 장면 요청을 저장하지 못했습니다.")
@@ -1598,12 +1606,16 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
         if self._processing or not path:
             return
         try:
-            if self._review_dialog is not None:
-                self._review_dialog.close()
-                self._review_dialog.deleteLater()
             dialog_type = LiveRecordsDialog if Path(path).name == "live_events.json" else CandidateReviewDialog
-            self._review_dialog = dialog_type(path, self)
-            self._review_dialog.show()
+            # Validate/construct first: a bad file must not destroy the last
+            # usable dialog or leave a reference to a deleted Qt object.
+            dialog = dialog_type(path, self)
+            dialog.show()
+            previous = self._review_dialog
+            self._review_dialog = dialog
+            if previous is not None:
+                previous.close()
+                previous.deleteLater()
         except Exception as error:
             QMessageBox.warning(self, "후보 기록 열기", str(error))
 

@@ -19,6 +19,7 @@ def test_events_use_gap_and_alert_threshold_without_changing_detection_candidate
     recorder.observe(1, at(1), [])
     recorder.observe(2, at(2), [.7])
     assert len(recorder.events) == 1
+    recorder.observe(4.1, at(4.1), [])
     recorder.observe(5, at(5), [.8])
     assert len(recorder.events) == 2
     assert recorder.events[0]['max_people'] == 2
@@ -26,6 +27,23 @@ def test_events_use_gap_and_alert_threshold_without_changing_detection_candidate
     assert recorder.events[0]['termination'] == 'gap'
     recorder.close('disconnected')
     assert recorder.events[1]['termination'] == 'disconnected'
+
+
+def test_slow_continuous_positive_frames_still_confirm_alerts():
+    recorder = LiveEventRecorder()
+    alerts = [recorder.observe(second, at(second), [.95]) for second in (0, 3, 6, 9)]
+    assert alerts == [False, False, True, False]
+    assert len(recorder.events) == 1
+    assert recorder.events[0]['duration_seconds'] == 9
+
+
+def test_explicit_negative_gap_resets_confirmation_even_with_slow_frames():
+    recorder = LiveEventRecorder(confirmation_frames=2)
+    recorder.observe(0, at(0), [.95])
+    recorder.observe(3, at(3), [])
+    assert not recorder.observe(6, at(6), [.95])
+    assert recorder.observe(9, at(9), [.95])
+    assert len(recorder.events) == 2
 
 
 def test_close_keeps_events_and_csv_is_utf8_bom_and_neutralizes_formulas(tmp_path):

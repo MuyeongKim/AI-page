@@ -139,7 +139,8 @@ class LiveRecordsWidget(QWidget):
         event = self.selected_event()
         for control in [self.note_edit, self.save_note_button, self.copy_button, *self.review_buttons]:
             control.setEnabled(event is not None and not self.read_only_running)
-        self.note_edit.setText(event["note"] if event else "")
+        self.note_edit.setText(self._pending.get(event["id"], {}).get("note", event["note"])
+                               if event else "")
         self.scene_button.setEnabled(bool(event and event["snapshots"] and self.record_path))
         self.report_button.setEnabled(not self.active and self.record_path is not None)
 
@@ -182,18 +183,47 @@ class LiveRecordsWidget(QWidget):
     def set_finished(self, record_path):
         path = Path(record_path)
         document = load_live_events(path)
+        selected = self.selected_event()
+        draft = self.note_edit.text()
+        expected_note = (self._pending.get(selected["id"], {}).get("note", selected["note"])
+                         if selected else "")
+        has_draft = selected is not None and draft != expected_note
         self.active = False
         self.read_only_running = document.get("status") == "running"
         self.record_path = path
-        self._pending.clear()
+        errors = []
+        had_pending = bool(self._pending)
+        # The worker has stopped writing before emitting its final result. Replay
+        # requests without an acknowledgement against that final file; an edit
+        # arriving after the worker sealed its queue must not be silently lost.
+        if not self.read_only_running:
+            for event_id, changes in list(self._pending.items()):
+                try:
+                    save_live_review(path, event_id, changes)
+                except Exception as error:
+                    errors.append(str(error))
+            document = load_live_events(path)
         for event in document["events"]:
             self.apply_event({"event": event, "saved": True})
+        if had_pending and not self.read_only_running:
+            try:
+                create_search_report(path)
+            except Exception as error:
+                errors.append(f"보고서 갱신 실패: {error}")
         self.report_button.setEnabled(True)
         self.save_status.setText(
             "중간 저장 기록입니다. 종료 상태가 확정되기 전에는 편집할 수 없습니다."
             if self.read_only_running else "종료된 기록입니다. 메모·판정 변경은 파일에 저장합니다."
         )
         self.selection_changed()
+        if has_draft:
+            self.note_edit.setText(draft)
+            self.save_status.setText("종료됨 · 미저장 메모를 유지했습니다. 메모 저장을 눌러 저장하세요.")
+        elif had_pending and not self._pending and not errors:
+            self.save_status.setText("종료됨 · 종료 직전 메모·판정까지 파일에 저장했습니다.")
+        if errors or self._pending:
+            detail = "; ".join(errors) or "저장 확인을 받지 못한 요청이 있습니다."
+            self.save_status.setText(f"종료됨 · 기록/CSV 저장 확인 필요: {detail} · 다시 저장해 주세요.")
 
     def save_note(self):
         self.commit({"note": self.note_edit.text()})
@@ -210,8 +240,9 @@ class LiveRecordsWidget(QWidget):
             self.edit_requested.emit(event_id, changes)
             self.save_status.setText(f"저장 요청됨 · {event_id} · 워커 확인을 기다리는 중")
             return
+        self._pending.setdefault(event_id, {}).update(changes)
         try:
-            document = save_live_review(self.record_path, event_id, changes)
+            document = save_live_review(self.record_path, event_id, self._pending[event_id])
             for updated in document["events"]:
                 self.apply_event({"event": updated, "saved": True})
             self.save_status.setText(f"저장됨 · {event_id}")

@@ -25,6 +25,7 @@ class CandidateReviewDialog(QDialog):
         self.entries = self._entries()
         self.index = 0
         self.preview = None
+        self._original_signature = None
         self.comparison = None
         self.setWindowTitle("사람 후보 확인")
         self.resize(920, 700)
@@ -111,6 +112,7 @@ class CandidateReviewDialog(QDialog):
             if item.widget() is not None:
                 item.widget().deleteLater()
         self.preview = None
+        self._original_signature = None
         for button in self.review_buttons:
             button.setEnabled(bool(self.entries))
         self.previous_button.setEnabled(self.index > 0)
@@ -134,6 +136,7 @@ class CandidateReviewDialog(QDialog):
         original = asset_path(self.path.parent, photo.get("original_file"))
         detected = asset_path(self.path.parent, photo.get("detected_file"))
         if original and original.is_file():
+            self._original_signature = self._file_signature(original)
             self.preview = PhotoPreview(original)
             self.preview.highlight_box = candidate["box"]
             self.preview.setAccessibleName("현재 사람 후보 원본 확대")
@@ -143,15 +146,45 @@ class CandidateReviewDialog(QDialog):
             self._focus_timer.start(0)
         else:
             self.photo_layout.addWidget(QLabel("원본 사진을 찾을 수 없습니다. 저장 폴더를 확인하세요."))
+        if self._update_evidence_controls():
+            self.save_status.setText("판정은 즉시 기록 파일에 저장합니다. ←/→ 이동, 1/2/3 판정")
+
+    @staticmethod
+    def _file_signature(path):
+        try:
+            stat = path.stat()
+            return stat.st_dev, stat.st_ino, stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns
+        except OSError:
+            return None
+
+    def _evidence_issue(self):
+        photo, _ = self.entries[self.index]
+        original = asset_path(self.path.parent, photo.get("original_file"))
+        if not original or not original.is_file():
+            return "원본 사진을 찾을 수 없습니다."
+        if (self._original_signature is None
+                or self._file_signature(original) != self._original_signature):
+            return "원본 파일이 변경되었습니다. 기록을 다시 열어 확인하세요."
+        if self.preview is None or self.preview._preview is None or self.preview._region_error:
+            return "원본 사진을 표시할 수 없습니다. 파일 손상·형식을 확인하세요."
+        if (self.preview.source_size.width(), self.preview.source_size.height()) != tuple(
+                photo["image_size"]):
+            return "원본 크기가 기록과 다릅니다. 원본이 바뀌었는지 확인하세요."
+        return ""
+
+    def _update_evidence_controls(self):
+        issue = self._evidence_issue()
+        for button in self.review_buttons[:2]:
+            button.setEnabled(not issue)
+        if issue:
+            self.save_status.setText(f"{issue} 판정은 보류만 저장할 수 있습니다.")
+        return not issue
 
     def focus_candidate(self):
-        if self.preview is None or not self.preview.source_size.isValid():
+        if not self.entries or not self._update_evidence_controls():
             return
         photo, candidate = self.entries[self.index]
         width, height = photo["image_size"]
-        if (self.preview.source_size.width(), self.preview.source_size.height()) != (width, height):
-            self.save_status.setText("원본 크기가 기록과 다릅니다. 원본이 바뀌었는지 확인하세요.")
-            return
         x1, y1, x2, y2 = candidate["box"]
         zoom = min(self.preview.width() / max(96, (x2 - x1) * 3),
                    self.preview.height() / max(96, (y2 - y1) * 3))
@@ -165,6 +198,10 @@ class CandidateReviewDialog(QDialog):
     def set_review(self, review):
         if not self.entries:
             return
+        # Recheck at commit time too: shortcuts and a file removed/replaced after
+        # opening must not bypass the disabled buttons.
+        if review in {"person", "false_positive"} and not self._update_evidence_controls():
+            return
         candidate_id = self.entries[self.index][1]["id"]
         try:
             self.document = save_photo_review(self.path, candidate_id, review)
@@ -172,7 +209,9 @@ class CandidateReviewDialog(QDialog):
             self.index = next(i for i, (_, candidate) in enumerate(self.entries)
                               if candidate["id"] == candidate_id)
             self.render_candidate()
-            self.save_status.setText(f"저장됨 · {candidate_id} · {REVIEW_LABELS[review]}")
+            issue = self._evidence_issue()
+            suffix = f" · {issue} 보류만 저장 가능" if issue else ""
+            self.save_status.setText(f"저장됨 · {candidate_id} · {REVIEW_LABELS[review]}{suffix}")
             self.changed.emit()
         except Exception as error:
             self.save_status.setText(f"저장 실패 · 판정은 변경되지 않았습니다: {error}")

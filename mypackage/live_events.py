@@ -28,6 +28,7 @@ class LiveEventRecorder:
         self.current = None
         self._started = 0
         self._last_seen = 0
+        self._missing_observed = False
         self._consecutive = 0
         self._last_alert = -math.inf
 
@@ -43,12 +44,17 @@ class LiveEventRecorder:
         return event
 
     def observe(self, now, captured_at, confidences):
-        if self.current is not None and now - self._last_seen > self.settings["gap_seconds"]:
-            self.close("gap")
         confidences = [float(value) for value in confidences if _finite_number(value, 0, 1)]
+        # Processing time alone is not evidence that a person disappeared. A gap
+        # needs an actual negative observation between positive frames.
+        self._missing_observed = self._missing_observed or not confidences
+        if (self.current is not None and self._missing_observed
+                and now - self._last_seen > self.settings["gap_seconds"]):
+            self.close("gap")
         if not confidences:
             self._consecutive = 0
             return False
+        self._missing_observed = False
         if self.current is None:
             self.current = self._new_event(captured_at, "detection")
             self._started = now
@@ -72,6 +78,7 @@ class LiveEventRecorder:
             self.current["termination"] = status
             self.current = None
         self._consecutive = 0
+        self._missing_observed = False
 
     def manual_event(self, _now, captured_at):
         return self.current if self.current is not None else self._new_event(captured_at, "manual")

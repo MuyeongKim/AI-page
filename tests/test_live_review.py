@@ -89,3 +89,86 @@ def test_incoming_event_does_not_replace_unsaved_note_text(qt_application):
     widget.apply_event({'event': recorder.events[0], 'saved': False})
     assert widget.note_edit.text() == 'operator is typing'
     widget.close()
+
+
+def test_finish_reconciles_all_unacknowledged_edits_and_preserves_newer_draft(tmp_path, qt_application):
+    recorder = LiveEventRecorder()
+    recorder.observe(0, '2026-10-18T14:32:00+09:00', [.9])
+    recorder.close('gap')
+    recorder.observe(3, '2026-10-18T14:32:03+09:00', [.9])
+    widget = LiveRecordsWidget()
+    for event in recorder.events:
+        widget.apply_event({'event': event, 'saved': True})
+    widget.table.selectRow(0)
+    widget.note_edit.setText('first note')
+    widget.save_note()
+    widget.commit({'review': 'hold'})
+    widget.table.selectRow(1)
+    widget.note_edit.setText('saved request')
+    widget.save_note()
+    widget.note_edit.setText('newer unsaved draft')
+    recorder.close('disconnected')
+    path, _ = write_live_records(tmp_path, recorder.document('26.1018', 'disconnected'))
+    widget.set_finished(path)
+    events = load_live_events(path)['events']
+    assert events[0]['note'] == 'first note' and events[0]['review'] == 'hold'
+    assert events[1]['note'] == 'saved request'
+    assert widget._pending == {}
+    assert widget.note_edit.text() == 'newer unsaved draft'
+    assert '미저장' in widget.save_status.text()
+    widget.save_note()
+    assert load_live_events(path)['events'][1]['note'] == 'newer unsaved draft'
+    assert 'first note' in (tmp_path / 'search_report.html').read_text()
+    widget.close()
+
+
+def test_finish_keeps_failed_pending_edit_visible_and_retryable(tmp_path, qt_application, monkeypatch):
+    import mypackage.live_review as review
+    recorder = LiveEventRecorder()
+    recorder.observe(0, '2026-10-18T14:32:00+09:00', [.9])
+    widget = LiveRecordsWidget()
+    widget.apply_event({'event': recorder.events[0], 'saved': True})
+    widget.note_edit.setText('retry this note')
+    widget.save_note()
+    widget.commit({'review': 'hold'})
+    recorder.close('cancelled')
+    path, _ = write_live_records(tmp_path, recorder.document('26.1018', 'cancelled'))
+    original_save = review.save_live_review
+    monkeypatch.setattr(review, 'save_live_review', lambda *args: (_ for _ in ()).throw(
+        OSError('disk full')))
+    widget.set_finished(path)
+    assert widget._pending == {'live-000001': {'note': 'retry this note', 'review': 'hold'}}
+    assert widget.note_edit.text() == 'retry this note'
+    assert 'disk full' in widget.save_status.text()
+    assert load_live_events(path)['events'][0]['note'] == ''
+    monkeypatch.setattr(review, 'save_live_review', original_save)
+    widget.save_note()
+    saved = load_live_events(path)['events'][0]
+    assert saved['note'] == 'retry this note' and saved['review'] == 'hold'
+    assert widget._pending == {}
+    widget.close()
+
+
+def test_finish_acknowledges_json_but_reports_derived_csv_failure(tmp_path, qt_application,
+                                                               monkeypatch):
+    import mypackage.live_events as live
+    recorder = LiveEventRecorder()
+    recorder.observe(0, '2026-10-18T14:32:00+09:00', [.9])
+    widget = LiveRecordsWidget()
+    widget.apply_event({'event': recorder.events[0], 'saved': True})
+    widget.note_edit.setText('JSON survives CSV failure')
+    widget.save_note()
+    recorder.close('failed')
+    path, _ = write_live_records(tmp_path, recorder.document('26.1018', 'failed'))
+
+    def fail_csv(*args):
+        raise OSError('CSV locked')
+
+    monkeypatch.setattr(live, 'write_bytes_file', fail_csv)
+    widget.set_finished(path)
+    assert load_live_events(path)['events'][0]['note'] == 'JSON survives CSV failure'
+    assert widget._pending == {}
+    assert widget.note_edit.text() == 'JSON survives CSV failure'
+    assert 'CSV locked' in widget.save_status.text()
+    assert 'JSON survives CSV failure' in (tmp_path / 'search_report.html').read_text()
+    widget.close()
