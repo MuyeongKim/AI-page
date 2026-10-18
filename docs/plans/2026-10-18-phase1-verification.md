@@ -69,3 +69,7 @@ npm test
 - 실제 외부 캡처보드는 연결되지 않아 캡처 인터페이스에 MP4 프레임을 공급했다. Windows EXE·물리 캡처보드·실제 스피커·운영 현장 인수시험은 이번 검증에 포함하지 않는다.
 
 실행 증거(JSON·로그·화면·입출력)는 로컬 임시 폴더 `/var/folders/c9/s2nl6p1d7x17ty6f7msg3sfm0000gn/T/ai-page-v261018-fixes-1h8kurn3`에 보관했다. 핵심 4건의 재현 조건은 `tests/test_live_events.py`, `test_live_worker_records.py`, `test_live_review.py`, `test_candidate_review.py`, `test_result_status_ui.py`에 영구 회귀 테스트로 남긴다.
+
+## 후속 S1 사진 후보 파일 연계
+
+사용자 추가 승인으로 사진 후보 내보내기·상황판 추가/갱신을 구현했다. 기존 1순위와 같은 V26.1018을 유지하며, 상세 계약·검증은 [S1 세부 기록](2026-10-18-stayup-photo-bridge.md)을 기준으로 한다. Python 296개·웹 30개와 실제 YOLO/GUI 내보내기를 확인했다. 상황판 검증은 두 저장소에서 함께 관리하며 Windows EXE는 사용자가 제작한다.

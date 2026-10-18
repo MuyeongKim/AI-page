@@ -404,6 +404,10 @@ class ModernUi_MainWindow(object):
         review_actions.addWidget(self.review_candidates_button)
         review_actions.addWidget(self.load_records_button)
         result_layout.addLayout(review_actions)
+        self.export_candidates_button = QPushButton("상황판으로 사진 후보 내보내기")
+        self.export_candidates_button.setEnabled(False)
+        self.export_candidates_button.setAccessibleName("완료된 사진 후보를 STAY UP 상황판용 JSON으로 내보내기")
+        result_layout.addWidget(self.export_candidates_button)
 
         self.infoCardHowTo = QFrame()
         self.infoCardHowTo.setObjectName("infoCardHowTo")
@@ -463,6 +467,9 @@ class ModernUi_MainWindow(object):
             "기록 불러오기로 이전 실행의 판정을 이어갈 수 있습니다. "
             "잘못된 기록을 선택해도 기존 확인 창은 유지됩니다. "
             "search_report.html은 오프라인 보고서이며 후보 판정 후 갱신됩니다. "
+            "사진 결과와 후보 확인창의 상황판으로 내보내기에서 stayup-ai-candidates.json을 저장합니다. "
+            "STAY UP의 AI 후보 불러오기로 추가·갱신하며 같은 파일을 다시 보내도 후보가 중복되지 않습니다. "
+            "상황판의 기존 대응 기록은 유지되며 GPS는 촬영 위치입니다. 판정 변경 후에는 다시 내보내세요. "
             "외부영상은 실시간 알림 신뢰도·연속 프레임·반복/구간 간격을 별도로 정할 수 있습니다. "
             "느린 추론만으로 구간을 나누지 않으며 실제 미탐지 관측이 있을 때 구간 간격을 적용합니다. "
             "미리보기에서 음소거·Space 장면 저장, 실시간 기록 탭에서 메모·판정·보고 문구 복사를 사용하세요. "

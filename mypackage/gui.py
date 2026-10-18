@@ -490,6 +490,7 @@ class DetectionWorker(QThread):
         self._video_output_expected_frames = None
         self.resolved_model_source = None
         self.photo_records = []
+        self.run_id = str(uuid4())
         self.live_recorder = (LiveEventRecorder(**(params.get("live_settings") or {}))
                               if self.source == CAPTURE_BOARD_SOURCE else None)
         self.live_events_path = None
@@ -610,7 +611,7 @@ class DetectionWorker(QThread):
                     try:
                         final_result["detections_path"] = write_json_file(
                             output_folder / "detections.json",
-                            {"schema_version": 1, "app_version": CURRENT_VERSION,
+                            {"schema_version": 1, "app_version": CURRENT_VERSION, "run_id": self.run_id,
                              "status": final_status, "photos": self.photo_records},
                         )
                     except Exception as error:
@@ -1424,6 +1425,7 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
         self.compare_result_button.clicked.connect(self.compare_selected_result)
         self.review_candidates_button.clicked.connect(self.review_candidates)
         self.load_records_button.clicked.connect(self.load_detection_records)
+        self.export_candidates_button.clicked.connect(self.export_photo_candidates)
         self.result_files_combo.currentIndexChanged.connect(self.update_result_actions)
         self.plainTextEdit_online_notice.anchorClicked.connect(self.open_notice_link)
         self.comboBox_data.currentIndexChanged.connect(self.update_datasize)
@@ -1589,6 +1591,13 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
             not self._processing and bool(result.get("detections_path") or result.get("live_events_path"))
         )
         self.load_records_button.setEnabled(not self._processing)
+        self.export_candidates_button.setEnabled(not self._processing and bool(result.get("detections_path")))
+
+    def export_photo_candidates(self):
+        from mypackage.candidate_export_ui import choose_photo_export
+        path = (self._last_detection_result or {}).get("detections_path")
+        if not self._processing and path:
+            choose_photo_export(self, path)
 
     def load_detection_records(self):
         path, _ = QFileDialog.getOpenFileName(

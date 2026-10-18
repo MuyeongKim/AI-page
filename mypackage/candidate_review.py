@@ -13,6 +13,7 @@ from mypackage.detection_records import (
 )
 from mypackage.result_view import PhotoPreview, ResultComparisonDialog
 from mypackage.search_report import create_search_report
+from mypackage.candidate_export_ui import choose_photo_export
 
 
 class CandidateReviewDialog(QDialog):
@@ -78,6 +79,12 @@ class CandidateReviewDialog(QDialog):
         self.report_button.setAccessibleName("현재 판정으로 오프라인 HTML 보고서를 만들고 열기")
         self.report_button.clicked.connect(self.open_report)
         layout.addWidget(self.report_button)
+        self.export_button = QPushButton("상황판으로 내보내기")
+        self.export_button.setMinimumHeight(36)
+        self.export_button.setAutoDefault(False)
+        self.export_button.setAccessibleName("사진 후보 전체를 STAY UP 상황판용 파일로 내보내기")
+        self.export_button.clicked.connect(lambda: choose_photo_export(self, self.path))
+        layout.addWidget(self.export_button)
         self.save_status = QLabel("판정은 즉시 기록 파일에 저장합니다. ←/→ 이동, 1/2/3 판정")
         self.save_status.setTextFormat(Qt.TextFormat.PlainText)
         self.save_status.setWordWrap(True)
