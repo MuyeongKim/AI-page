@@ -6,8 +6,10 @@ from datetime import datetime
 from pathlib import Path
 
 import exifread
+from PySide6.QtCore import QLockFile
 
 from mypackage import gps2
+from mypackage.run_report import write_json_file
 
 REVIEW_LABELS = {
     "unreviewed": "미확인", "person": "사람 맞음", "false_positive": "오탐", "hold": "보류",
@@ -143,3 +145,25 @@ def _validate_id(value, identities):
     if not isinstance(value, str) or not value or value in identities:
         raise ValueError("기록 ID가 없거나 중복되었습니다.")
     identities.add(value)
+
+
+def save_photo_review(path, candidate_id, review):
+    """Update only one candidate under a cross-process edit lock."""
+    if review not in REVIEW_LABELS:
+        raise ValueError("잘못된 후보 확인 상태입니다.")
+    path = Path(path)
+    lock = QLockFile(str(path) + ".edit.lock")
+    lock.setStaleLockTime(0)
+    if not lock.tryLock(0):
+        raise OSError("다른 창이 기록을 수정 중입니다. 잠시 후 다시 시도해 주세요.")
+    try:
+        document = load_detections(path)
+        for photo in document["photos"]:
+            for candidate in photo["people"]:
+                if candidate["id"] == candidate_id:
+                    candidate["review"] = review
+                    write_json_file(path, document)
+                    return document
+        raise ValueError("선택한 후보가 현재 기록에 없습니다. 기록을 다시 열어 주세요.")
+    finally:
+        lock.unlock()

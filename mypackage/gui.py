@@ -58,6 +58,7 @@ from ultralytics import YOLO
 
 from mypackage import gps2, start
 from mypackage.candidate_images import save_candidate_thumbnail
+from mypackage.candidate_review import CandidateReviewDialog
 from mypackage.device import get_preferred_device, is_mps_available
 from mypackage.detection_records import append_result_candidates, read_photo_metadata
 from mypackage.modern_gui_fixed import ModernUi_MainWindow
@@ -1133,6 +1134,7 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
         self._close_after_gps = False
         self._last_detection_result = None
         self._comparison_dialog = None
+        self._review_dialog = None
         self._applying_preset = False
         self._preview_frame_lock = threading.Lock()
         self._pending_preview_frame = None
@@ -1159,6 +1161,8 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
         self.open_output_button.clicked.connect(self.open_output_folder)
         self.open_result_button.clicked.connect(self.open_selected_result)
         self.compare_result_button.clicked.connect(self.compare_selected_result)
+        self.review_candidates_button.clicked.connect(self.review_candidates)
+        self.load_records_button.clicked.connect(self.load_detection_records)
         self.result_files_combo.currentIndexChanged.connect(self.update_result_actions)
         self.plainTextEdit_online_notice.anchorClicked.connect(self.open_notice_link)
         self.comboBox_data.currentIndexChanged.connect(self.update_datasize)
@@ -1320,6 +1324,32 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
         result = self._last_detection_result or {}
         folder = result.get("output_folder")
         self.open_output_button.setEnabled(bool(folder) and Path(folder).is_dir())
+        self.review_candidates_button.setEnabled(
+            not self._processing and bool(result.get("detections_path"))
+        )
+        self.load_records_button.setEnabled(not self._processing)
+
+    def load_detection_records(self):
+        path, _ = QFileDialog.getOpenFileName(
+            self, "이전 탐지 기록 열기", str(DETECTED_OUTPUT_DIR), "사진 기록 (detections.json)"
+        )
+        if path:
+            self.open_candidate_review(path)
+
+    def review_candidates(self):
+        self.open_candidate_review((self._last_detection_result or {}).get("detections_path"))
+
+    def open_candidate_review(self, path):
+        if self._processing or not path:
+            return
+        try:
+            if self._review_dialog is not None:
+                self._review_dialog.close()
+                self._review_dialog.deleteLater()
+            self._review_dialog = CandidateReviewDialog(path, self)
+            self._review_dialog.show()
+        except Exception as error:
+            QMessageBox.warning(self, "후보 기록 열기", str(error))
 
     def open_local_result(self, path):
         if not path or not Path(path).exists():
@@ -1578,6 +1608,7 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
     def set_processing_state(self, active):
         self._processing = active
         self.update_action_states()
+        self.update_result_actions()
         if active:
             self.set_main_status(f"탐지 실행 중 · {self.device.upper()}", "working")
 

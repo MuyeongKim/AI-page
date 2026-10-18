@@ -395,6 +395,15 @@ class ModernUi_MainWindow(object):
             button.setEnabled(False)
             result_actions.addWidget(button)
         result_layout.addLayout(result_actions)
+        review_actions = QHBoxLayout()
+        self.review_candidates_button = QPushButton("후보 확인")
+        self.load_records_button = QPushButton("기록 불러오기")
+        self.review_candidates_button.setEnabled(False)
+        self.review_candidates_button.setAccessibleName("사진의 사람 후보별 확인")
+        self.load_records_button.setAccessibleName("이전 실행 폴더의 탐지 기록 불러오기")
+        review_actions.addWidget(self.review_candidates_button)
+        review_actions.addWidget(self.load_records_button)
+        result_layout.addLayout(review_actions)
 
         self.infoCardHowTo = QFrame()
         self.infoCardHowTo.setObjectName("infoCardHowTo")
@@ -449,6 +458,8 @@ class ModernUi_MainWindow(object):
             "실행 폴더의 run_summary.json에 설정·상태·오류가 기록되며, "
             "detections.json에는 사진·후보별 좌표·신뢰도·촬영정보가 남습니다. "
             "GPS는 촬영 위치이며 사람의 정확한 좌표가 아닙니다. "
+            "후보 확인에서 ←/→로 이동하고 1/2/3으로 사람 맞음·오탐·보류를 저장합니다. "
+            "기록 불러오기로 이전 실행의 판정을 이어갈 수 있습니다. "
             "모델 준비에 실패하거나 분석 시작 전에 취소한 작업은 폴더와 기록을 만들지 않습니다."
         )
 

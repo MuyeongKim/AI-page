@@ -6,7 +6,7 @@ import math
 from pathlib import Path
 
 from PySide6.QtCore import QPointF, QRect, QRectF, QSize, Qt, QTimer, Signal
-from PySide6.QtGui import QColor, QImageIOHandler, QImageReader, QPainter, QTransform
+from PySide6.QtGui import QColor, QImageIOHandler, QImageReader, QPainter, QPen, QTransform
 from PySide6.QtWidgets import (
     QDialog, QHBoxLayout, QLabel, QPushButton, QSizePolicy, QVBoxLayout, QWidget,
 )
@@ -44,6 +44,7 @@ class PhotoPreview(QWidget):
         self._error = ""
         self._region_error = ""
         self._raw_to_display = QTransform()
+        self.highlight_box = None
         self._detail_timer = QTimer(self)
         self._detail_timer.setSingleShot(True)
         self._detail_timer.setInterval(100)
@@ -211,6 +212,11 @@ class PhotoPreview(QWidget):
             painter.setPen(QColor("#ffffff"))
             painter.drawText(QRect(8, 0, self.width() - 16, 28),
                              Qt.AlignmentFlag.AlignVCenter, "원본 영역을 불러오는 중…")
+        if self.highlight_box is not None:
+            x1, y1, x2, y2 = self.highlight_box
+            painter.setPen(QPen(QColor("#ffcc33"), 2))
+            painter.drawRect(QRectF(origin.x() + x1 * self.zoom, origin.y() + y1 * self.zoom,
+                                    (x2 - x1) * self.zoom, (y2 - y1) * self.zoom))
         if self.hasFocus():
             painter.setPen(QColor("#5eead4"))
             painter.drawRect(self.rect().adjusted(1, 1, -2, -2))
