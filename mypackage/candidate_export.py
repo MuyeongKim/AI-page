@@ -42,9 +42,13 @@ def _thumbnail(path):
     return "data:image/jpeg;base64," + base64.b64encode(bytes(data)).decode("ascii")
 
 
-def export_photo_candidates(record_path, destination):
+def export_photo_candidates(record_path, destination, *, to_folder=False, cancelled=None):
     record_path, destination = Path(record_path).resolve(), Path(destination).resolve()
-    if (destination == record_path or destination.suffix.lower() != ".json"
+    if cancelled is not None and cancelled.is_set():
+        raise InterruptedError("폴더 연결이 해제되었습니다.")
+    if to_folder and not destination.is_dir():
+        raise OSError("연결 폴더를 찾을 수 없습니다. 폴더를 다시 연결해 주세요.")
+    if not to_folder and (destination == record_path or destination.suffix.lower() != ".json"
             or destination.name in {"detections.json", "live_events.json", "run_summary.json"}):
         raise ValueError("원본 기록과 다른 JSON 파일로 저장해 주세요.")
     lock = QLockFile(str(record_path) + ".edit.lock")
@@ -53,6 +57,9 @@ def export_photo_candidates(record_path, destination):
         raise OSError("다른 창이 후보 기록을 수정 중입니다. 잠시 후 다시 내보내세요.")
     try:
         document = load_detections(record_path)
+        run_id = str(UUID(document["run_id"])) if document.get("run_id") else str(uuid4())
+        if to_folder:
+            destination = destination / f"stayup-ai-candidates-{run_id}.json"
         status = document.get("status", "completed")
         if status not in {"completed", "partial", "cancelled", "failed"}:
             raise ValueError("분석이 끝난 사진 기록만 내보낼 수 있습니다.")
@@ -90,7 +97,6 @@ def export_photo_candidates(record_path, destination):
                 })
         if len(candidates) > MAX_CANDIDATES:
             raise ValueError("한 파일은 후보 5,000건까지 내보낼 수 있습니다.")
-        run_id = str(UUID(document["run_id"])) if document.get("run_id") else str(uuid4())
         counts = {"status": status, "photoCount": len(document["photos"]),
                   "completedCount": sum(p["status"] == "completed" for p in document["photos"]),
                   "failedCount": sum(p["status"] != "completed" for p in document["photos"])}
@@ -107,12 +113,40 @@ def export_photo_candidates(record_path, destination):
                    "run": {"id": run_id, "revision": revision, **counts}, "candidates": candidates}
         if len(json.dumps(payload, ensure_ascii=False, indent=2).encode("utf-8")) + 1 > MAX_EXPORT_BYTES:
             raise ValueError("후보 파일이 16 MiB를 넘습니다. 사진 묶음을 나누어 분석해 주세요.")
-        document["run_id"] = run_id
-        document["stayup_export"] = {"revision": revision, "digest": digest}
-        # Reserve identity/revision before publishing. A failed export can be
-        # retried with the same revision; earlier files stay intact.
-        write_json_file(record_path, document)
-        write_json_file(destination, payload)
+        output_lock = QLockFile(str(destination) + ".lock") if to_folder else None
+        if output_lock is not None and not output_lock.tryLock(0):
+            raise OSError("다른 창이 연결 폴더에 저장 중입니다. 잠시 후 다시 시도하세요.")
+        try:
+            unchanged = False
+            if to_folder and destination.exists():
+                if destination.stat().st_size > MAX_EXPORT_BYTES:
+                    raise ValueError("연결 폴더의 기존 파일 크기 충돌입니다. 다른 폴더를 선택하세요.")
+                existing = json.loads(destination.read_text(encoding="utf-8"))
+                old_run = existing.get("run", {})
+                old_revision = old_run.get("revision")
+                if (existing.get("format") != payload["format"] or existing.get("version") != 1
+                        or old_run.get("id") != run_id or type(old_revision) is not int):
+                    raise ValueError("연결 폴더의 기존 파일 형식 충돌입니다.")
+                if old_revision > revision:
+                    raise ValueError("연결 폴더에 더 최신 리비전이 있습니다. 최신 원본 기록을 열어 주세요.")
+                unchanged = old_revision == revision
+                if unchanged and (old_run != payload["run"] or existing.get("candidates") != candidates):
+                    raise ValueError("연결 폴더의 같은 리비전 내용 충돌입니다. 원본 기록을 확인하세요.")
+            if cancelled is not None and cancelled.is_set():
+                raise InterruptedError("폴더 연결이 해제되었습니다.")
+            # Reserve identity/revision before publishing. Failed output can be
+            # retried with the same revision; the previous atomic file survives.
+            metadata = {"revision": revision, "digest": digest}
+            if document.get("run_id") != run_id or document.get("stayup_export") != metadata:
+                document["run_id"], document["stayup_export"] = run_id, metadata
+                write_json_file(record_path, document)
+            if cancelled is not None and cancelled.is_set():
+                raise InterruptedError("폴더 연결이 해제되었습니다.")
+            if not unchanged:
+                write_json_file(destination, payload)
+        finally:
+            if output_lock is not None:
+                output_lock.unlock()
         return payload
     finally:
         lock.unlock()

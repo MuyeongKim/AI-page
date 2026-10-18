@@ -1426,6 +1426,11 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
         self.review_candidates_button.clicked.connect(self.review_candidates)
         self.load_records_button.clicked.connect(self.load_detection_records)
         self.export_candidates_button.clicked.connect(self.export_photo_candidates)
+        from mypackage.candidate_export_ui import CandidateFolderPublisher
+        self.candidate_publisher = CandidateFolderPublisher(self)
+        self.candidate_publisher.status_changed.connect(self.candidate_folder_status.setText)
+        self.candidate_folder_button.clicked.connect(self.connect_candidate_folder)
+        self.candidate_folder_stop_button.clicked.connect(self.disconnect_candidate_folder)
         self.result_files_combo.currentIndexChanged.connect(self.update_result_actions)
         self.plainTextEdit_online_notice.anchorClicked.connect(self.open_notice_link)
         self.comboBox_data.currentIndexChanged.connect(self.update_datasize)
@@ -1563,6 +1568,7 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
 
     def remember_detection_result(self, result, message):
         self._last_detection_result = dict(result)
+        self.candidate_publisher.request(result.get("detections_path"))
         if result.get("report_path"):
             message += f"\n\n실행 기록: {result['report_path']}"
         elif result.get("report_warning") and result["report_warning"] not in message:
@@ -1599,6 +1605,23 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
         if not self._processing and path:
             choose_photo_export(self, path)
 
+    def connect_candidate_folder(self):
+        folder = QFileDialog.getExistingDirectory(self, "상황판과 함께 사용할 사진 후보 폴더 선택")
+        if not folder:
+            return
+        try:
+            self.candidate_publisher.connect_folder(folder)
+            self.candidate_folder_stop_button.setEnabled(True)
+            self.candidate_publisher.request((self._last_detection_result or {}).get("detections_path"))
+            if isinstance(self._review_dialog, CandidateReviewDialog):
+                self.candidate_publisher.request(self._review_dialog.path)
+        except OSError as error:
+            QMessageBox.warning(self, "자동 저장 폴더 연결", str(error))
+
+    def disconnect_candidate_folder(self):
+        self.candidate_publisher.disconnect_folder()
+        self.candidate_folder_stop_button.setEnabled(False)
+
     def load_detection_records(self):
         path, _ = QFileDialog.getOpenFileName(
             self, "이전 탐지 기록 열기", str(DETECTED_OUTPUT_DIR),
@@ -1619,6 +1642,9 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
             # Validate/construct first: a bad file must not destroy the last
             # usable dialog or leave a reference to a deleted Qt object.
             dialog = dialog_type(path, self)
+            if isinstance(dialog, CandidateReviewDialog):
+                dialog.changed.connect(lambda path=dialog.path: self.candidate_publisher.request(path))
+                self.candidate_publisher.request(dialog.path)
             dialog.show()
             previous = self._review_dialog
             self._review_dialog = dialog
@@ -1933,6 +1959,7 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
         if self._cleanup_done:
             return
         self._cleanup_done = True
+        self.candidate_publisher.shutdown()
 
         try:
             if hasattr(self, "_online_notice_loader"):

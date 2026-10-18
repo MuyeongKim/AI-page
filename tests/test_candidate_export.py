@@ -198,3 +198,147 @@ def test_legacy_missing_preview_keeps_candidate_and_status(photo_record):
     export_photo_candidates(photo_record, destination)
     assert len(read(destination)['candidates']) == 2
     assert all(c['thumbnail'] is None for c in read(destination)['candidates'])
+
+
+def test_folder_publication_is_per_run_atomic_stable_and_keeps_latest(photo_record, tmp_path):
+    folder = tmp_path / 'bridge'
+    folder.mkdir()
+    first = export_photo_candidates(photo_record, folder, to_folder=True)
+    target = folder / ('stayup-ai-candidates-' + first['run']['id'] + '.json')
+    assert read(target) == first
+    before = target.stat().st_mtime_ns, target.read_bytes()
+    export_photo_candidates(photo_record, folder, to_folder=True)
+    assert (target.stat().st_mtime_ns, target.read_bytes()) == before
+    old_source = photo_record.read_bytes()
+    save_photo_review(photo_record, 'p1-person-1', 'hold')
+    second = export_photo_candidates(photo_record, folder, to_folder=True)
+    assert second['run']['revision'] == 2
+    photo_record.write_bytes(old_source)
+    with pytest.raises(ValueError, match='최신|충돌'):
+        export_photo_candidates(photo_record, folder, to_folder=True)
+    assert read(target) == second
+
+
+def test_folder_publication_rejects_conflict_and_cancelled_session(photo_record, tmp_path):
+    import threading
+    folder = tmp_path / 'bridge'
+    folder.mkdir()
+    first = export_photo_candidates(photo_record, folder, to_folder=True)
+    target = next(folder.glob('*.json'))
+    bad = read(target)
+    bad['candidates'][0]['review'] = 'person'
+    target.write_text(json.dumps(bad), encoding='utf-8')
+    with pytest.raises(ValueError, match='충돌'):
+        export_photo_candidates(photo_record, folder, to_folder=True)
+    cancelled = threading.Event()
+    cancelled.set()
+    with pytest.raises(InterruptedError):
+        export_photo_candidates(photo_record, folder, to_folder=True, cancelled=cancelled)
+    assert read(target) != first
+
+
+def test_folder_controller_coalesces_saved_reviews_and_stops(photo_record, tmp_path, qt_application):
+    from PySide6.QtTest import QTest
+    from mypackage.candidate_export_ui import CandidateFolderPublisher
+    folder = tmp_path / 'bridge'
+    folder.mkdir()
+    publisher = CandidateFolderPublisher()
+    publisher.connect_folder(folder)
+    publisher.request(photo_record)
+    for _ in range(200):
+        qt_application.processEvents()
+        if list(folder.glob('*.json')) and publisher.job is None:
+            break
+        QTest.qWait(10)
+    target = next(folder.glob('*.json'))
+    save_photo_review(photo_record, 'p1-person-1', 'hold')
+    publisher.request(photo_record)
+    publisher.request(photo_record)
+    for _ in range(200):
+        qt_application.processEvents()
+        if read(target)['run']['revision'] == 2 and publisher.job is None and not publisher.pending:
+            break
+        QTest.qWait(10)
+    assert read(target)['candidates'][0]['review'] == 'hold'
+    assert read(target)['run']['revision'] == 2
+    publisher.shutdown()
+    publisher.request(photo_record)
+    assert publisher.job is None and not publisher.pending
+
+
+def test_folder_write_failure_preserves_prior_file(photo_record, tmp_path, monkeypatch):
+    import mypackage.candidate_export as exporter
+    folder = tmp_path / 'bridge'
+    folder.mkdir()
+    first = export_photo_candidates(photo_record, folder, to_folder=True)
+    target = next(folder.glob('*.json'))
+    save_photo_review(photo_record, 'p1-person-1', 'hold')
+    original = exporter.write_json_file
+
+    def fail(path, document):
+        if path == target:
+            raise OSError('disk full')
+        return original(path, document)
+
+    monkeypatch.setattr(exporter, 'write_json_file', fail)
+    with pytest.raises(OSError, match='disk full'):
+        export_photo_candidates(photo_record, folder, to_folder=True)
+    assert read(target) == first
+    monkeypatch.setattr(exporter, 'write_json_file', original)
+    assert export_photo_candidates(photo_record, folder, to_folder=True)['run']['revision'] == 2
+
+
+def test_stopping_publisher_during_background_export_cancels_publication(photo_record, tmp_path,
+                                                                       qt_application, monkeypatch):
+    import threading
+    from PySide6.QtTest import QTest
+    from mypackage import candidate_export_ui as ui
+    folder = tmp_path / 'bridge'
+    folder.mkdir()
+    entered, release = threading.Event(), threading.Event()
+    original = ui.export_photo_candidates
+
+    def slow(*args, **kwargs):
+        entered.set()
+        assert release.wait(3)
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(ui, 'export_photo_candidates', slow)
+    publisher = ui.CandidateFolderPublisher()
+    publisher.connect_folder(folder)
+    publisher.request(photo_record)
+    try:
+        for _ in range(100):
+            qt_application.processEvents()
+            if entered.is_set():
+                break
+            QTest.qWait(10)
+        assert entered.is_set()
+        publisher.disconnect_folder()
+        release.set()
+        publisher.shutdown()
+        qt_application.processEvents()
+        assert not list(folder.glob('*.json'))
+    finally:
+        release.set()
+        publisher.shutdown()
+
+
+def test_disconnect_after_revision_reservation_does_not_publish(photo_record, tmp_path, monkeypatch):
+    import threading
+    import mypackage.candidate_export as exporter
+    folder = tmp_path / 'bridge'
+    folder.mkdir()
+    cancelled = threading.Event()
+    write = exporter.write_json_file
+
+    def disconnect(path, document):
+        write(path, document)
+        if path == photo_record:
+            cancelled.set()
+
+    monkeypatch.setattr(exporter, 'write_json_file', disconnect)
+    with pytest.raises(InterruptedError):
+        export_photo_candidates(photo_record, folder, to_folder=True, cancelled=cancelled)
+    assert not list(folder.glob('*.json'))
+    assert read(photo_record)['stayup_export']['revision'] == 1
