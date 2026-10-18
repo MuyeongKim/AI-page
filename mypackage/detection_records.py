@@ -22,11 +22,18 @@ def read_photo_metadata(path):
     try:
         with open(path, "rb") as stream:
             tags = exifread.process_file(stream, details=False)
+    except Exception as error:
+        tags = {}
+        metadata["warnings"].append(f"촬영 메타데이터 읽기 실패: {error}")
+    try:
         value = str(tags.get("EXIF DateTimeOriginal", ""))
         if value:
             captured = datetime.strptime(value, "%Y:%m:%d %H:%M:%S").isoformat()
             offset = str(tags.get("EXIF OffsetTimeOriginal", ""))
             metadata["captured_at"] = datetime.fromisoformat(captured + offset).isoformat()
+    except Exception as error:
+        metadata["warnings"].append(f"촬영 시각 확인 실패: {error}")
+    try:
         gps = gps2.extract_gps_data(path)
         if gps is not None:
             lat, lon = gps
@@ -35,7 +42,7 @@ def read_photo_metadata(path):
                 raise ValueError("GPS 위경도가 유효하지 않습니다")
             metadata["gps"] = {"lat": lat, "lon": lon}
     except Exception as error:
-        metadata["warnings"].append(f"촬영 메타데이터 확인 실패: {error}")
+        metadata["warnings"].append(f"촬영 GPS 확인 실패: {error}")
     return metadata
 
 
@@ -73,7 +80,7 @@ def append_result_candidates(photo, result):
 
 def asset_path(folder, filename):
     """Accept only files within the selected run folder, including symlink resolution."""
-    if not filename:
+    if filename is None or filename == "":
         return None
     if not isinstance(filename, str) or Path(filename).is_absolute():
         raise ValueError("결과 파일은 실행 폴더 안의 상대 경로여야 합니다.")
@@ -92,7 +99,8 @@ def read_record_json(path):
         document = json.load(stream, parse_constant=lambda value: (_ for _ in ()).throw(
             ValueError(f"유효하지 않은 숫자: {value}")
         ))
-    if not isinstance(document, dict) or document.get("schema_version") != 1:
+    if (not isinstance(document, dict) or type(document.get("schema_version")) is not int
+            or document.get("schema_version") != 1):
         raise ValueError("지원하지 않는 기록 형식입니다.")
     return document
 

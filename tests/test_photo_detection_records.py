@@ -89,3 +89,16 @@ def test_loader_rejects_invalid_coordinates_and_escaping_assets(tmp_path):
     path.write_text(json.dumps(base))
     with pytest.raises(ValueError):
         load_detections(path)
+
+
+def test_bad_capture_time_keeps_valid_photo_gps(tmp_path, monkeypatch):
+    import mypackage.detection_records as records
+    photo = tmp_path / 'photo.jpg'
+    photo.touch()
+    monkeypatch.setattr(records.exifread, 'process_file', lambda *args, **kwargs: {
+        'EXIF DateTimeOriginal': 'not a time'})
+    monkeypatch.setattr(records.gps2, 'extract_gps_data', lambda _: (35, 127))
+    metadata = read_photo_metadata(photo)
+    assert metadata['captured_at'] is None
+    assert metadata['gps'] == {'lat': 35, 'lon': 127}
+    assert any('시각' in warning for warning in metadata['warnings'])

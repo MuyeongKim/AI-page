@@ -396,10 +396,10 @@ class ModernUi_MainWindow(object):
             result_actions.addWidget(button)
         result_layout.addLayout(result_actions)
         review_actions = QHBoxLayout()
-        self.review_candidates_button = QPushButton("후보 확인")
+        self.review_candidates_button = QPushButton("후보·기록 확인")
         self.load_records_button = QPushButton("기록 불러오기")
         self.review_candidates_button.setEnabled(False)
-        self.review_candidates_button.setAccessibleName("사진의 사람 후보별 확인")
+        self.review_candidates_button.setAccessibleName("사진 후보 또는 실시간 구간 기록 확인")
         self.load_records_button.setAccessibleName("이전 실행 폴더의 탐지 기록 불러오기")
         review_actions.addWidget(self.review_candidates_button)
         review_actions.addWidget(self.load_records_button)
@@ -461,6 +461,9 @@ class ModernUi_MainWindow(object):
             "후보 확인에서 ←/→로 이동하고 1/2/3으로 사람 맞음·오탐·보류를 저장합니다. "
             "기록 불러오기로 이전 실행의 판정을 이어갈 수 있습니다. "
             "search_report.html은 오프라인 보고서이며 후보 판정 후 갱신됩니다. "
+            "외부영상은 실시간 알림 신뢰도·연속 프레임·반복/구간 간격을 별도로 정할 수 있습니다. "
+            "미리보기에서 음소거·Space 장면 저장, 실시간 기록 탭에서 메모·판정·보고 문구 복사를 사용하세요. "
+            "장면은 정지 이미지만 저장하며 live_events.json·live_events.csv에 기록합니다. "
             "모델 준비에 실패하거나 분석 시작 전에 취소한 작업은 폴더와 기록을 만들지 않습니다."
         )
 

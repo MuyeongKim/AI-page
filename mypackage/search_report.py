@@ -10,10 +10,12 @@ from mypackage.detection_records import (
     REVIEW_LABELS, asset_path, load_detections, read_record_json,
 )
 from mypackage.run_report import write_bytes_file
+from mypackage.live_events import event_report_message, load_live_events
 
 STATUS_LABELS = {
     "completed": "완료", "partial": "부분 완료", "failed": "실패", "cancelled": "취소",
     "disconnected": "입력 연결 끊김",
+    "running": "실행 중 또는 종료 기록 미확정",
 }
 
 
@@ -34,6 +36,8 @@ def embedded_thumbnail(folder, filename):
 
 def create_search_report(record_path, summary=None):
     path = Path(record_path)
+    if path.name == "live_events.json":
+        return create_live_search_report(path, summary)
     document = load_detections(path)
     if summary is None:
         summary_path = path.parent / "run_summary.json"
@@ -81,6 +85,51 @@ def create_search_report(record_path, summary=None):
 <h2>오류·주의 사항</h2><ul>{''.join(f'<li>{escaped(note)}</li>' for note in dict.fromkeys(notes)) or '<li>기록된 오류·주의 사항 없음</li>'}</ul>
 <section class="appendix"><h2>부록 · 전체 후보 {len(entries)}건</h2>
 <table><thead><tr><th>후보 ID</th><th>사진</th><th>신뢰도</th><th>사람 확인</th><th>촬영 시각</th><th>촬영 위치</th></tr></thead>
+<tbody>{''.join(rows)}</tbody></table></section>
+"""
+    return write_report_html(path.parent, body)
+
+
+def create_live_search_report(path, summary=None):
+    path = Path(path)
+    document = load_live_events(path)
+    if summary is None:
+        summary_path = path.parent / "run_summary.json"
+        summary = read_record_json(summary_path) if summary_path.is_file() else {}
+    events = document["events"]
+    counts = Counter(event["review"] for event in events)
+    rows, cards = [], []
+    for index, event in enumerate(sorted(events, key=lambda e: e["peak_confidence"], reverse=True)):
+        rows.append("<tr>" + "".join(f"<td>{escaped(value)}</td>" for value in (
+            event["id"], "탐지 구간" if event["kind"] == "detection" else "수동 장면",
+            event["started_at"], event["ended_at"], f"{event['duration_seconds']:.1f}",
+            event["max_people"], f"{event['peak_confidence']:.1%}",
+            REVIEW_LABELS[event["review"]], event["note"], len(event["snapshots"]),
+        )) + "</tr>")
+        if index < 6:
+            snapshot = event["snapshots"][0]["file"] if event["snapshots"] else None
+            cards.append(f"<article>{embedded_thumbnail(path.parent, snapshot)}<div><b>"
+                         f"{escaped(event['id'])}</b><p>{escaped(event_report_message(event))}"
+                         "</p></div></article>")
+    notes = [*summary.get("errors", []), *summary.get("warnings", [])]
+    body = f"""
+<h1>1차 수색결과보고 · 실시간 후보</h1>
+<p>생성 {escaped(datetime.now().astimezone().isoformat(timespec='seconds'))} ·
+버전 {escaped(document.get('app_version'))} · 종료 상태
+<strong>{escaped(STATUS_LABELS.get(document.get('status'), document.get('status')))}</strong></p>
+<div class="notice">이벤트는 시간 구간 묶음이며 동일인 추적이나 고유 인원 집계가 아닙니다.
+위치는 확인되지 않았습니다. 수동 장면 저장은 사람 탐지나 현장 발견 확정을 뜻하지 않습니다.</div>
+<p>탐지 구간 {sum(e['kind'] == 'detection' for e in events)}건 ·
+수동 장면 구간 {sum(e['kind'] == 'manual' for e in events)}건 ·
+저장 장면 {sum(len(e['snapshots']) for e in events)}장</p>
+<p>{escaped(' · '.join(f'{label} {counts[state]}' for state, label in REVIEW_LABELS.items()))}</p>
+<p>알림·이벤트 설정 {escaped(document.get('settings'))}</p>
+<h2>확인할 구간 요약</h2><p>신뢰도순 상위 {min(6, len(events))}건. 전체 {len(events)}건은 아래 표에 있습니다.</p>
+<div class="cards">{''.join(cards) or '<p>기록된 실시간 구간이 없습니다.</p>'}</div>
+<h2>오류·주의 사항</h2><ul>{''.join(f'<li>{escaped(note)}</li>' for note in dict.fromkeys(notes)) or '<li>기록된 오류·주의 사항 없음</li>'}</ul>
+<section class="appendix"><h2>부록 · 전체 실시간 구간</h2><table><thead><tr>
+<th>ID</th><th>종류</th><th>시작</th><th>마지막 탐지/장면</th><th>지속(초)</th><th>최대 동시</th>
+<th>최고 신뢰도</th><th>사람 확인</th><th>메모</th><th>장면 수</th></tr></thead>
 <tbody>{''.join(rows)}</tbody></table></section>
 """
     return write_report_html(path.parent, body)
