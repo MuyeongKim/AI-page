@@ -31,3 +31,18 @@ def write_json_file(destination, document):
     finally:
         temporary.unlink(missing_ok=True)
     return str(destination.resolve())
+
+
+def write_bytes_file(destination, data):
+    """Publish encoded local output atomically, retaining an existing file on failure."""
+    destination = Path(destination)
+    temporary = destination.with_name(f".{destination.stem}.{uuid4().hex}.tmp")
+    try:
+        with temporary.open("xb") as stream:
+            stream.write(data)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, destination)
+    finally:
+        temporary.unlink(missing_ok=True)
+    return str(destination.resolve())

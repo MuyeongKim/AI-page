@@ -57,6 +57,7 @@ from PySide6.QtWidgets import (
 from ultralytics import YOLO
 
 from mypackage import gps2, start
+from mypackage.candidate_images import save_candidate_thumbnail
 from mypackage.device import get_preferred_device, is_mps_available
 from mypackage.detection_records import append_result_candidates, read_photo_metadata
 from mypackage.modern_gui_fixed import ModernUi_MainWindow
@@ -661,7 +662,16 @@ class DetectionWorker(QThread):
                     )
                     source_people += people_count
                     source_cars += car_count
+                    previous_candidates = len(photo["people"])
                     append_result_candidates(photo, result)
+                    for candidate in photo["people"][previous_candidates:]:
+                        try:
+                            candidate["thumbnail_file"] = save_candidate_thumbnail(
+                                output_folder, candidate, getattr(result, "orig_img", None)
+                            )
+                        except Exception as error:
+                            candidate["thumbnail_file"] = None
+                            photo["warnings"].append(f"후보 확대 이미지 저장 실패: {error}")
 
                     if (people_count > 0 or car_count > 0) and not source_detected:
                         original_path, detected_path = self.file_copy(source, result, output_folder)

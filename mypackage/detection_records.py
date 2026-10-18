@@ -119,6 +119,7 @@ def load_detections(path):
             if not isinstance(candidate, dict):
                 raise ValueError("잘못된 후보 기록입니다.")
             _validate_id(candidate.get("id"), identities)
+            asset_path(path.parent, candidate.get("thumbnail_file"))
             if candidate.get("review") not in REVIEW_LABELS:
                 raise ValueError("잘못된 후보 확인 상태입니다.")
             size, box = photo.get("image_size"), candidate.get("box")
