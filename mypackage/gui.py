@@ -344,6 +344,13 @@ class DetectionProgressDialog(QDialog):
         self.label.setWordWrap(True)
         layout.addWidget(self.label)
 
+        self.photo_summary = QLabel()
+        self.photo_summary.setTextFormat(Qt.TextFormat.PlainText)
+        self.photo_summary.setWordWrap(True)
+        self.photo_summary.setAccessibleName("사진별 탐지 후보와 누적 처리 결과")
+        self.photo_summary.hide()
+        layout.addWidget(self.photo_summary)
+
         self.elapsed_label = QLabel("경과 시간: 00:00")
         self.elapsed_label.setAccessibleName("작업 경과 시간")
         layout.addWidget(self.elapsed_label)
@@ -363,6 +370,20 @@ class DetectionProgressDialog(QDialog):
 
     def setValue(self, value):
         self.progress_bar.setValue(value)
+
+    def set_photo_result(self, result):
+        if result["status"] == "completed":
+            current = f"사람 후보 {result['people']}건 · 차량 후보 {result['vehicles']}건"
+        else:
+            current = "분석 실패 · 탐지 여부 미확인"
+        self.photo_summary.setText(
+            f"최근 처리: {result['filename']} — {current}\n"
+            f"누적 사람 후보 {result['total_people']}건 · 차량 후보 {result['total_vehicles']}건\n"
+            f"처리 {result['processed']}/{result['total']}장 · 성공 {result['succeeded']}장 · "
+            f"실패 {result['failed']}장 · 후보가 있는 사진 {result['detected_photos']}장\n"
+            "후보 수는 사진 사이에 중복될 수 있으며 고유 인원수가 아닙니다."
+        )
+        self.photo_summary.show()
 
     def setLabelText(self, message):
         if not self._cancel_requested:
@@ -447,6 +468,7 @@ class DetectionWorker(QThread):
     # 시그널 정의
     progress_signal = Signal(int, str)  # 진행률 (퍼센트/카운트, 메시지)
     stage_signal = Signal(str, int, int)  # 단계 메시지, 현재 수, 전체 수(0이면 미정)
+    photo_result_signal = Signal(dict)
     log_signal = Signal(str)  # 로그 메시지
     error_signal = Signal(str)  # 에러 메시지
     finished_signal = Signal(dict)  # 작업 완료 시그널 (최종 결과 포함)
@@ -848,6 +870,7 @@ class DetectionWorker(QThread):
             f"진행 중... {self.processed_count} / {self.file_count}",
         )
         self.stage_signal.emit("사진 분석 중", self.processed_count, self.file_count)
+        self.emit_photo_result(source, succeeded is not False)
         if self.processed_count % 10 == 0:
             gc.collect()
             clear_torch_cache(self.device)
@@ -864,6 +887,21 @@ class DetectionWorker(QThread):
             f"진행 중... {self.processed_count} / {self.file_count}",
         )
         self.stage_signal.emit("사진 분석 중", self.processed_count, self.file_count)
+        self.emit_photo_result("읽을 수 없는 입력", False)
+
+    def emit_photo_result(self, source, succeeded):
+        completed = [photo for photo in self.photo_records if photo.get("status") == "completed"]
+        current = self.photo_records[-1] if self.photo_records else {}
+        self.photo_result_signal.emit({
+            "filename": Path(source).name, "status": "completed" if succeeded else "failed",
+            "people": len(current.get("people", [])) if succeeded else 0,
+            "vehicles": current.get("vehicles", 0) if succeeded else 0,
+            "total_people": sum(len(photo.get("people", [])) for photo in completed),
+            "total_vehicles": sum(photo.get("vehicles", 0) for photo in completed),
+            "detected_photos": sum(bool(photo.get("people") or photo.get("vehicles")) for photo in completed),
+            "processed": self.processed_count, "total": self.file_count,
+            "succeeded": self.succeeded_count, "failed": self.failed_count,
+        })
 
     def process_single_file(self, source, detected_files, output_folder):
         """단일 파일 YOLO 처리"""
@@ -1666,18 +1704,44 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
         self.update_result_actions()
 
     def open_selected_result(self):
-        self.open_local_result((self.result_files_combo.currentData() or {}).get("output"))
+        output = (self.result_files_combo.currentData() or {}).get("output")
+        if output and Path(output).suffix.lower() in {".jpg", ".jpeg", ".png", ".bmp", ".webp", ".tif", ".tiff"}:
+            self.show_result_gallery(False)
+        else:
+            self.open_local_result(output)
 
     def compare_selected_result(self):
+        self.show_result_gallery(True)
+
+    def show_result_gallery(self, comparison):
         selected = self.result_files_combo.currentData() or {}
         original, output = selected.get("original"), selected.get("output")
-        if not original or not output or not all(Path(path).is_file() for path in (original, output)):
+        if not output:
             QMessageBox.warning(self, "결과 비교", "원본 또는 탐지 결과 파일을 찾을 수 없습니다.")
             return
         if self._comparison_dialog is not None:
             self._comparison_dialog.close()
             self._comparison_dialog.deleteLater()
-        self._comparison_dialog = ResultComparisonDialog(original, output, self)
+        items = [self.result_files_combo.itemData(i) for i in range(self.result_files_combo.count())]
+        items = [item for item in items if item and Path(item["output"]).suffix.lower() in
+                 {".jpg", ".jpeg", ".png", ".bmp", ".webp", ".tif", ".tiff"}]
+        if not items:
+            self.open_local_result(output)
+            return
+        if not Path(output).is_file() or (comparison and (not original or not Path(original).is_file())):
+            QMessageBox.warning(self, "결과 열기", "현재 사진 파일이 이동되었거나 삭제되었습니다. 다른 사진은 이전·다음 버튼으로 확인할 수 있습니다.")
+            if len(items) == 1:
+                return
+        index = next((i for i, item in enumerate(items) if item["output"] == output), 0)
+        self._comparison_dialog = ResultComparisonDialog(
+            original, output, self, items=items, current_index=index, comparison=comparison
+        )
+        self._comparison_dialog.current_changed.connect(
+            lambda i: self.result_files_combo.setCurrentIndex(next(
+                (n for n in range(self.result_files_combo.count())
+                 if self.result_files_combo.itemData(n)["output"] == items[i]["output"]), 0
+            ))
+        )
         self._comparison_dialog.show()
 
     def start_gps_mapping(self, paths, output_folder):
@@ -2521,6 +2585,8 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
         self.worker.progress_signal.connect(self.update_progress)
         if hasattr(self.worker, "stage_signal"):
             self.worker.stage_signal.connect(self.update_stage_progress)
+        if hasattr(self.worker, "photo_result_signal"):
+            self.worker.photo_result_signal.connect(self.update_photo_result)
         self.worker.error_signal.connect(self.handle_error)
         self.worker.finished_signal.connect(self.on_detection_finished)
         self.worker.log_signal.connect(self.log_message)
@@ -2578,6 +2644,11 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
             self.progress_dialog.set_stage_progress(message, value, maximum)
         if not self._cancel_requested:
             self.set_main_status(message, "working")
+
+    @Slot(dict)
+    def update_photo_result(self, result):
+        if self.progress_dialog is not None:
+            self.progress_dialog.set_photo_result(result)
 
     @Slot(str)
     def handle_error(self, error_msg):

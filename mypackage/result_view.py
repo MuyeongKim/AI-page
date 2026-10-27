@@ -6,7 +6,7 @@ import math
 from pathlib import Path
 
 from PySide6.QtCore import QPointF, QRect, QRectF, QSize, Qt, QTimer, Signal
-from PySide6.QtGui import QColor, QImageIOHandler, QImageReader, QPainter, QPen, QTransform
+from PySide6.QtGui import QColor, QImageIOHandler, QImageReader, QKeySequence, QPainter, QPen, QShortcut, QTransform
 from PySide6.QtWidgets import (
     QDialog, QHBoxLayout, QLabel, QPushButton, QSizePolicy, QVBoxLayout, QWidget,
 )
@@ -295,8 +295,13 @@ class PhotoPreview(QWidget):
 
 
 class ResultComparisonDialog(QDialog):
-    def __init__(self, original, detected, parent=None):
+    current_changed = Signal(int)
+
+    def __init__(self, original, detected, parent=None, *, items=None, current_index=0, comparison=True):
         super().__init__(parent)
+        self.items = list(items) if items else [{"original": original, "output": detected}]
+        self.current_index = max(0, min(current_index, len(self.items) - 1))
+        self.comparison_mode = comparison
         self.setWindowTitle("원본과 탐지 결과 비교")
         self.resize(1050, 680)
         self.setMinimumSize(500, 360)
@@ -318,6 +323,28 @@ class ResultComparisonDialog(QDialog):
         )
         notice.setWordWrap(True)
         layout.addWidget(notice)
+        navigation = QHBoxLayout()
+        self.previous_button = QPushButton("← 이전 사진")
+        self.next_button = QPushButton("다음 사진 →")
+        self.item_label = QLabel()
+        self.item_label.setTextFormat(Qt.TextFormat.PlainText)
+        self.item_label.setWordWrap(True)
+        self.mode_button = QPushButton()
+        for button in (self.previous_button, self.next_button, self.mode_button):
+            button.setMinimumHeight(40)
+            button.setAutoDefault(False)
+        navigation.addWidget(self.previous_button)
+        navigation.addWidget(self.item_label, 1)
+        navigation.addWidget(self.next_button)
+        navigation.addWidget(self.mode_button)
+        layout.addLayout(navigation)
+        self.previous_button.clicked.connect(lambda: self.move_photo(-1))
+        self.next_button.clicked.connect(lambda: self.move_photo(1))
+        self.mode_button.clicked.connect(self.toggle_mode)
+        for sequence, delta in (("PgUp", -1), ("PgDown", 1), ("Alt+Left", -1), ("Alt+Right", 1)):
+            shortcut = QShortcut(QKeySequence(sequence), self)
+            shortcut.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+            shortcut.activated.connect(lambda delta=delta: self.move_photo(delta))
         toolbar = QHBoxLayout()
         self.zoom_out_button = QPushButton("− 축소")
         self.zoom_in_button = QPushButton("+ 확대")
@@ -338,35 +365,80 @@ class ResultComparisonDialog(QDialog):
         self.zoom_label.setAccessibleName("현재 비교 배율")
         toolbar.addWidget(self.zoom_label)
         layout.addLayout(toolbar)
-        columns = QHBoxLayout()
+        self.columns = QHBoxLayout()
         self.previews = []
-        for title, path in (("원본", original), ("탐지 결과", detected)):
-            column = QVBoxLayout()
-            label = QLabel(f"{title} · {Path(path).name}")
+        self.photo_columns = []
+        layout.addLayout(self.columns, 1)
+        self.zoom_out_button.clicked.connect(lambda: self.primary_preview().request_zoom(0.8))
+        self.zoom_in_button.clicked.connect(lambda: self.primary_preview().request_zoom(1.25))
+        self.actual_size_button.clicked.connect(
+            lambda: self._sync_view(1.0, self.primary_preview().center)
+        )
+        self.fit_button.clicked.connect(self.fit_to_window)
+        self.load_photo()
+
+    def load_photo(self):
+        for preview in self.previews:
+            preview._detail_timer.stop()
+        while self.columns.count():
+            item = self.columns.takeAt(0)
+            item.widget().hide()
+            item.widget().deleteLater()
+        self.previews = []
+        self.photo_columns = []
+        item = self.items[self.current_index]
+        self.item_label.setText(
+            f"사진 {self.current_index + 1} / {len(self.items)} · {Path(item['output']).name}"
+        )
+        self.previous_button.setEnabled(self.current_index > 0)
+        self.next_button.setEnabled(self.current_index + 1 < len(self.items))
+        for title, path in (("원본", item.get("original")), ("탐지 결과", item["output"])):
+            wrapper = QWidget()
+            column = QVBoxLayout(wrapper)
+            column.setContentsMargins(0, 0, 0, 0)
+            label = QLabel(f"{title} · {Path(path).name if path else '파일 없음'}")
             label.setTextFormat(Qt.TextFormat.PlainText)
             label.setWordWrap(True)
             label.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
-            label.setToolTip(Path(path).name)
+            label.setToolTip(str(path or "파일 없음"))
             column.addWidget(label)
-            preview = PhotoPreview(path)
+            preview = PhotoPreview(path or "")
             preview.setAccessibleName(f"{title} 사진")
             preview.view_changed.connect(self._sync_view)
             preview.resized.connect(self._update_zoom_label)
             self.previews.append(preview)
             column.addWidget(preview, 1)
-            columns.addLayout(column, 1)
-        layout.addLayout(columns, 1)
-        self.zoom_out_button.clicked.connect(lambda: self.previews[0].request_zoom(0.8))
-        self.zoom_in_button.clicked.connect(lambda: self.previews[0].request_zoom(1.25))
-        self.actual_size_button.clicked.connect(
-            lambda: self._sync_view(1.0, self.previews[0].center)
-        )
-        self.fit_button.clicked.connect(self.fit_to_window)
-        available = all(preview._preview is not None for preview in self.previews)
+            self.columns.addWidget(wrapper, 1)
+            self.photo_columns.append(wrapper)
+        self.update_mode()
+        self.fit_to_window()
+
+    def primary_preview(self):
+        return self.previews[0 if self.comparison_mode else 1]
+
+    def update_mode(self):
+        self.photo_columns[0].setVisible(self.comparison_mode)
+        self.mode_button.setText("탐지본만 보기" if self.comparison_mode else "원본과 비교")
+        self.setWindowTitle("원본과 탐지 결과 비교" if self.comparison_mode else "탐지 결과 사진 보기")
+        available = all(preview._preview is not None for preview in
+                        (self.previews if self.comparison_mode else self.previews[1:]))
         for button in (
             self.zoom_out_button, self.zoom_in_button, self.actual_size_button, self.fit_button
         ):
             button.setEnabled(available)
+
+    def toggle_mode(self):
+        self.comparison_mode = not self.comparison_mode
+        self.update_mode()
+        self.fit_to_window()
+
+    def move_photo(self, delta):
+        index = self.current_index + delta
+        if not 0 <= index < len(self.items):
+            return
+        self.current_index = index
+        self.load_photo()
+        self.current_changed.emit(index)
 
     def _sync_view(self, zoom, center):
         for preview in self.previews:
@@ -376,7 +448,7 @@ class ResultComparisonDialog(QDialog):
     def _update_zoom_label(self):
         if not self.previews:
             return
-        preview = self.previews[0]
+        preview = self.primary_preview()
         self.zoom_label.setText("화면 맞춤" if preview.fit_mode else f"{preview.zoom * 100:.0f}%")
 
     def fit_to_window(self):

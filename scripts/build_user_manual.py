@@ -112,7 +112,7 @@ def table_from_lines(lines, style, page):
             for cell in cell_text
         ])
     tab = Table(cells, colWidths=widths, hAlign='LEFT', repeatRows=1)
-    pad = 4 if page == 1 else 5
+    pad = 2.5 if page == 1 else 5
     tab.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), TEAL),
         ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, PALE]),
