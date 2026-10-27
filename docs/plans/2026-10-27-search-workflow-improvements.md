@@ -35,3 +35,4 @@ STAY UP: 좌표 적용의 기상·승인 무효화와 기존 지도 불변, 사�
 - 로컬 `yolo26x.pt`를 CPU에서 실제 실행했다. 공개 샘플 사진 2장을 순차 분석해 사진별 사람 후보 4건, 누적 4→8건을 확인했고 Qt 갤러리의 두 번째 사진·원본 비교·확대·이동을 확인했다. 같은 사진을 복사한 실행 검증이며 탐지 정확도나 고유 인원수 평가가 아니다.
 - STAY UP 새 흐름 39건과 화면 배치 100건, 첫 사용·연습·보존 58건, 조작 흐름 34건을 실제 Chrome에서 통과했다. 기존 폴더 읽기는 HTTP와 직접 파일 열기에서 각각 11건을 통과했다. 구글 좌표 선택은 모의 SDK로 검사했으며 실제 키·과금과 Windows 장비 시험은 수행하지 않았다.
 - 사용설명서 원문·GUI 안내·변경 이력·PDF를 맞췄다. AI PDF 14쪽과 STAY UP PDF의 변경 안내 쪽을 렌더링해 잘림 여부를 확인했다. EXE는 제작하지 않았다.
+- GitLab 게시 과정에서 OSV 검사가 기존 웹 빌드 간접 의존성의 보안 권고로 거절했다. `fast-uri` 3.1.9, `undici` 8.12.3, `zod` 4.6.7로 잠금 파일만 갱신하고 사이트 전체 검사와 `npm audit` 취약점 0건을 재확인했다. 근거: [fast-uri 보안 권고](https://github.com/fastify/fast-uri/security/advisories/GHSA-w74x-v6f9-j3xg), [undici 보안 권고](https://github.com/nodejs/undici/security/advisories/GHSA-xjj6-f33q-929c), npm 감사 결과.
