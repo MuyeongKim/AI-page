@@ -53,7 +53,10 @@ class ModernUi_MainWindow(object):
         if not MainWindow.objectName():
             MainWindow.setObjectName("MainWindow")
 
-        MainWindow.resize(760, 760)
+        screen = MainWindow.screen()
+        # 제목 표시줄과 화면 가장자리 여백을 남긴다.
+        height = min(900, screen.availableGeometry().height() - 48) if screen else 900
+        MainWindow.resize(760, max(560, height))
         MainWindow.setMinimumSize(QSize(560, 560))
         MainWindow.setWindowTitle(CURRENT_RELEASE.window_title)
 
@@ -467,7 +470,7 @@ class ModernUi_MainWindow(object):
 
     def retranslateUi(self, MainWindow):
         self.plainTextEdit_2.setPlainText(
-            "1. 입력 소스에서 외부영상, 사진, 영상 중 하나를 선택합니다.\n\n"
+            "1. 입력 소스에서 외부영상, 사진, 영상 중 하나를 선택합니다. 기본 창 높이는 900px이며 화면 높이에 맞춰 조절합니다. 캡처보드를 선택하면 실시간 옵션이 보이도록 이동합니다.\n\n"
             "2. 탐지 모델을 직접 선택하거나 빠른·균형·정밀 분석 모드를 선택합니다. "
             "추천 적용은 현재 장치에 맞는 모드를 적용합니다. 최대 모델은 시간과 메모리를 많이 사용합니다.\n\n"
             "3. 사진/영상은 파일 또는 폴더를 선택하고, "

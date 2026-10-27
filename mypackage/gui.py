@@ -2335,6 +2335,14 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
             self.close_preview_window()
         self.update_action_states()
 
+        if self.source == CAPTURE_BOARD_SOURCE:
+            QTimer.singleShot(0, self, self.reveal_live_settings)
+
+    def reveal_live_settings(self):
+        if self.source == CAPTURE_BOARD_SOURCE and self.live_settings.isVisible():
+            self.main_layout.activate()
+            self.scrollArea.ensureWidgetVisible(self.live_settings, 0, 16)
+
     def update_datasize(self, index):
         self.mark_custom_preset()
         selection = self.comboBox_data.itemText(index)

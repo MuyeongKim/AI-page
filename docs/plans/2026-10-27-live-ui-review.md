@@ -41,3 +41,7 @@
 - PDF 14쪽을 다시 만들고 결과 버튼 안내·실시간 안내 쪽을 렌더링해 잘림을 확인했다. 로컬 실행 자료는 Git에서 제외한 `output/playwright/ui-live-review/`에 있다.
 
 재실행: `QT_QPA_PLATFORM=offscreen .venv/bin/python -m pytest -q -p no:cacheprovider` 및 `cd site && npm test && npm audit --audit-level=low`.
+
+### V26.1027 창 높이 후속 보완
+
+기존 760px 창에서 실시간 옵션 아래쪽이 가려짐을 Qt 렌더링으로 재현했다. 기본 높이를 900px로 늘리고 작업 영역 높이에서 제목 표시줄·여백 48px를 뺀 크기로 제한한다. 캡처보드를 선택한 뒤 레이아웃 반영을 기다려 실시간 옵션을 화면 안으로 스크롤한다. 760×900·760×680·560×560에서 옵션 전체·하단 고정 버튼과 가로 넘침을 확인했고, Python 316건·웹 API 30건·빌드·Ruff·릴리스 일치 검사를 통과했다. 실행 화면과 측정값은 `output/playwright/window-height/`에 보관한다.
