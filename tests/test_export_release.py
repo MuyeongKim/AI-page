@@ -34,8 +34,8 @@ def test_current_feed_is_generated_from_current_release_and_prepares_new_downloa
         actual = json.load(stream)
 
     assert actual == build_release_feed(actual)
-    assert actual["version"] == CURRENT_RELEASE.version == "26.1018"
-    assert actual["release_date"] == CURRENT_RELEASE.release_date == "2026-10-18"
+    assert actual["version"] == CURRENT_RELEASE.version == "26.1027"
+    assert actual["release_date"] == CURRENT_RELEASE.release_date == "2026-10-27"
     assert actual["changelog"] == current_release_changelog()
     assert actual["download_url"] is None
     assert actual["download"] == {
@@ -91,7 +91,7 @@ def test_ready_google_drive_download_is_preserved_for_same_release(tmp_path):
     assert feed["download"] == ready_download
 
 
-@pytest.mark.parametrize("old_version", ["26.08.17", "26.08.25", "26.0904", "26.0905", "26.0908"])
+@pytest.mark.parametrize("old_version", ["26.08.17", "26.08.25", "26.0904", "26.0905", "26.0908", "26.1018"])
 def test_old_release_download_is_not_reused_for_new_release(tmp_path, old_version):
     artifact = _write_artifact(tmp_path)
     existing = {

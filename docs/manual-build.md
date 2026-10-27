@@ -1,10 +1,10 @@
 # 사용설명서 관리
 
 - 편집 원본: `docs/사용설명서.md`
-- PDF: `output/pdf/Stay-Up-AI-사용설명서-V26.1018.pdf`
+- PDF: `output/pdf/Stay-Up-AI-사용설명서-V26.1027.pdf`
 - 생성기: `scripts/build_user_manual.py`
-- 기준: `mypackage/version.py`의 V26.1018, 2026-10-18 개정
-- 화면: `docs/images/manual-main-V26.1018.png`. 현재 소스 GUI를 `scripts/capture_user_manual.py`로 캡처한다. 이번 화면은 macOS 개발 환경의 실제 위젯 렌더링이며 Windows 인수시험 화면으로 표기하지 않는다. 웹사이트도 같은 이미지와 PDF 원본을 사용한다.
+- 기준: `mypackage/version.py`의 V26.1027, 2026-10-27 개정
+- 화면: `docs/images/manual-main-V26.1027.png`. 현재 소스 GUI를 `scripts/capture_user_manual.py`로 캡처한다. 이번 화면은 macOS 개발 환경의 실제 위젯 렌더링이며 Windows 인수시험 화면으로 표기하지 않는다. 웹사이트도 같은 이미지와 PDF 원본을 사용한다.
 
 Markdown의 `<!-- pagebreak -->`는 PDF의 고정 페이지 구분이다. PDF는 이 원본을 읽어 생성하므로 내용을 별도로 복제해서 편집하지 않는다. 목차 페이지는 구성이 달라지면 함께 갱신한다. 생성기는 표지의 대상 버전이 `CURRENT_RELEASE.display_version`과 다르면 실패하며, 출력 파일명·PDF 바닥글·메타데이터에 현재 앱 버전을 사용한다.
 
@@ -56,3 +56,17 @@ QT_QPA_PLATFORM=offscreen .venv/bin/python scripts/capture_user_manual.py
 같은 버전의 실행 재현 4건 수정 후 PDF를 다시 생성했다. 12쪽에 원본 확인 불가 시 보류만 허용·잘못된 기록에서 기존 창 유지 안내를, 13쪽에 실제 미탐지 관측으로 구간 분리·종료 직전 저장과 미저장 입력 재시도 안내를 반영했다. 페이지·책갈피·링크 수와 전 쪽 버전 바닥글을 재확인하고 13쪽 전체 및 변경한 12~13쪽을 렌더링해 검수했다.
 
 S1 사진 후보 파일 연계 후 12쪽에 상황판용 내보내기·추가/갱신·판정 변경 후 재전달·조작/표출 창 업데이트 안내를 추가했다. 같은 V26.1018 PDF를 13쪽으로 재생성하고 페이지 렌더링에서 안내·표·바닥글 잘림이 없는지 확인했다. STAY UP의 별도 설명서에도 AI 후보 장을 추가했다.
+
+## V26.1027 갱신 (2026-10-27)
+
+현재 버전을 V26.1027로 올리고 이전 이력·V26.1018 이미지·PDF를 보관했다. 현재 초기 GUI를 다시 렌더링하고, 결과보기 통합·상황판 연계 섹션과 실시간 보완이 포함된 Markdown으로 새 PDF 14쪽을 생성한다. 웹사이트는 새 버전의 원본 이미지와 PDF를 직접 가져온다.
+
+```bash
+QT_QPA_PLATFORM=offscreen .venv/bin/python scripts/capture_user_manual.py
+/Users/tenmoo/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 \
+  scripts/build_user_manual.py \
+  --font '/Library/Fonts/Arial Unicode.ttf' \
+  --bold-font '/Library/Fonts/Arial Unicode.ttf'
+```
+
+현재 작업의 글꼴은 macOS Arial Unicode이며 PDF에 포함된다. 표지·화면·실시간 안내 쪽을 렌더링하고 모든 쪽의 V26.1027 바닥글을 확인했다. Python 316건·웹 API 30건과 빌드·릴리스 일치 검사가 통과했다. 실제 Windows EXE·캡처보드 인수시험과 새 ZIP 공개는 별도이며 다운로드 준비 중을 유지한다.

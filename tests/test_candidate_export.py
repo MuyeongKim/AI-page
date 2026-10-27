@@ -36,7 +36,7 @@ def test_portable_export_has_only_photo_location_and_embedded_small_preview(phot
     export_photo_candidates(photo_record, destination)
     payload = read(destination)
     assert payload['format'] == 'stayup-ai-candidates' and payload['version'] == 1
-    assert payload['app']['version'] == '26.1018'
+    assert payload['app']['version'] == '26.1027'
     assert payload['run']['revision'] == 1 and payload['run']['photoCount'] == 2
     first, second = payload['candidates']
     assert first['file'] == 'photo.jpg' and second['file'] == 'other.jpg'

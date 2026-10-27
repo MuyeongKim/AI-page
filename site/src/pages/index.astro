@@ -1,8 +1,8 @@
 ---
 import releaseFeed from "../../../latest_version.json";
 import updateFeed from "../../../site_updates.json";
-import currentAppImage from "../../../docs/images/manual-main-V26.1018.png";
-import manualUrl from "../../../output/pdf/Stay-Up-AI-사용설명서-V26.1018.pdf?url";
+import currentAppImage from "../../../docs/images/manual-main-V26.1027.png";
+import manualUrl from "../../../output/pdf/Stay-Up-AI-사용설명서-V26.1027.pdf?url";
 import BaseLayout from "../layouts/BaseLayout.astro";
 
 interface DownloadInfo {
@@ -60,7 +60,7 @@ const deploymentBuiltAtLabel = deploymentBuiltAt
     }).format(deploymentBuiltAt)
   : null;
 const versionLabel = `V${releaseFeed.version}`;
-const guideVersion = "26.1018";
+const guideVersion = "26.1027";
 if (guideVersion !== releaseFeed.version) {
   throw new Error("현재 릴리스에 맞는 프로그램 화면과 PDF 사용설명서를 연결해 주세요.");
 }
