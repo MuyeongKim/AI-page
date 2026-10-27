@@ -109,7 +109,7 @@ def test_main_result_open_uses_gallery_and_updates_selection(qt_application, tmp
     window.open_selected_result()
     qt_application.processEvents()
     dialog = window._comparison_dialog
-    assert dialog.isVisible() and not dialog.comparison_mode
+    assert dialog.isVisible() and dialog.comparison_mode
     dialog.next_button.click()
     assert window.result_files_combo.currentIndex() == 1
     assert not external.called

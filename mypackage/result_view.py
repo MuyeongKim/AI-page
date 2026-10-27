@@ -389,6 +389,7 @@ class ResultComparisonDialog(QDialog):
         item = self.items[self.current_index]
         self.item_label.setText(
             f"사진 {self.current_index + 1} / {len(self.items)} · {Path(item['output']).name}"
+            + (" · 원본 없음" if not item.get("original") or not Path(item["original"]).is_file() else "")
         )
         self.previous_button.setEnabled(self.current_index > 0)
         self.next_button.setEnabled(self.current_index + 1 < len(self.items))

@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
     QComboBox,
     QFrame,
     QGridLayout,
+    QGroupBox,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -386,11 +387,10 @@ class ModernUi_MainWindow(object):
         self.result_files_combo.setEnabled(False)
         result_layout.addWidget(self.result_files_combo)
         result_actions = QHBoxLayout()
-        self.open_result_button = QPushButton("결과 열기")
-        self.compare_result_button = QPushButton("원본과 비교")
+        self.open_result_button = QPushButton("결과보기 [원본과 비교]")
         self.open_output_button = QPushButton("저장 폴더 열기")
         for button in (
-            self.open_result_button, self.compare_result_button, self.open_output_button
+            self.open_result_button, self.open_output_button
         ):
             button.setEnabled(False)
             result_actions.addWidget(button)
@@ -404,21 +404,29 @@ class ModernUi_MainWindow(object):
         review_actions.addWidget(self.review_candidates_button)
         review_actions.addWidget(self.load_records_button)
         result_layout.addLayout(review_actions)
+        self.dashboard_link_group = QGroupBox("STAY UP 상황판 연계")
+        self.dashboard_link_group.setObjectName("dashboardLinkGroup")
+        link_layout = QVBoxLayout(self.dashboard_link_group)
+        link_layout.setContentsMargins(12, 18, 12, 12)
+        link_note = QLabel("다른 PC로 전달할 때는 파일 내보내기, 같은 PC에서는 자동 저장 폴더를 연결하세요.")
+        link_note.setWordWrap(True)
+        link_layout.addWidget(link_note)
         self.export_candidates_button = QPushButton("상황판으로 사진 후보 내보내기")
         self.export_candidates_button.setEnabled(False)
         self.export_candidates_button.setAccessibleName("완료된 사진 후보를 STAY UP 상황판용 JSON으로 내보내기")
-        result_layout.addWidget(self.export_candidates_button)
+        link_layout.addWidget(self.export_candidates_button)
         folder_actions = QHBoxLayout()
         self.candidate_folder_button = QPushButton("상황판 자동 저장 폴더 연결")
         self.candidate_folder_stop_button = QPushButton("연결 해제")
         self.candidate_folder_stop_button.setEnabled(False)
         folder_actions.addWidget(self.candidate_folder_button)
         folder_actions.addWidget(self.candidate_folder_stop_button)
-        result_layout.addLayout(folder_actions)
+        link_layout.addLayout(folder_actions)
         self.candidate_folder_status = QLabel("자동 저장 연결 안 됨 · 사진 후보만 연계합니다.")
         self.candidate_folder_status.setWordWrap(True)
         self.candidate_folder_status.setTextFormat(Qt.TextFormat.PlainText)
-        result_layout.addWidget(self.candidate_folder_status)
+        link_layout.addWidget(self.candidate_folder_status)
+        result_layout.addWidget(self.dashboard_link_group)
 
         self.infoCardHowTo = QFrame()
         self.infoCardHowTo.setObjectName("infoCardHowTo")
@@ -469,7 +477,7 @@ class ModernUi_MainWindow(object):
             "신뢰도가 낮으면 후보가 늘지만 오탐도 늘 수 있습니다.\n\n"
             "5. 진행 창에서 사진별 사람·차량 후보 수, 누적 후보·성공·실패와 경과시간을 확인합니다. 후보 수는 고유 인원이 아닙니다. Esc도 취소 요청으로 처리됩니다.\n\n"
             "6. 작업 결과 탭에서 전체 오류·저장 파일을 다시 확인합니다. "
-            "사진은 원본과 동기 확대·이동하며 비교할 수 있습니다. 결과·비교창의 이전 사진·다음 사진 또는 PageUp/PageDown으로 연속 확인하고 탐지본 보기와 비교를 전환합니다. "
+            "결과보기 [원본과 비교]에서 원본과 동기 확대·이동하며 비교합니다. 이전 사진·다음 사진 또는 PageUp/PageDown으로 연속 확인하고 탐지본 보기와 비교를 전환합니다. 영상은 영상 결과보기로 엽니다. "
             "실행 폴더의 run_summary.json에 설정·상태·오류가 기록되며, "
             "detections.json에는 사진·후보별 좌표·신뢰도·촬영정보가 남습니다. "
             "GPS는 촬영 위치이며 사람의 정확한 좌표가 아닙니다. "
@@ -481,11 +489,13 @@ class ModernUi_MainWindow(object):
             "사진 결과와 후보 확인창의 상황판으로 내보내기에서 stayup-ai-candidates.json을 저장합니다. "
             "STAY UP의 AI 후보 불러오기로 추가·갱신하며 같은 파일을 다시 보내도 후보가 중복되지 않습니다. "
             "상황판의 기존 대응 기록은 유지되며 GPS는 촬영 위치입니다. 수동 전달은 판정 변경 후 다시 내보내세요. "
-            "같은 PC에서는 작업 결과의 상황판 자동 저장 폴더 연결과 상황판의 자동 읽기 폴더 연결에서 같은 폴더를 선택합니다. "
+            "작업 결과 하단 STAY UP 상황판 연계에서 파일 내보내기와 자동 저장 폴더 연결을 선택합니다. 같은 PC에서는 상황판의 자동 읽기 폴더 연결에도 같은 폴더를 지정합니다. "
             "사진 분석 종료·사진 기록 열기·판정 저장 시 작업별 파일을 자동 갱신하며 재시작 후에는 다시 연결합니다. "
             "외부영상은 실시간 알림 신뢰도·연속 프레임·반복/구간 간격을 별도로 정할 수 있습니다. "
             "느린 추론만으로 구간을 나누지 않으며 실제 미탐지 관측이 있을 때 구간 간격을 적용합니다. "
             "미리보기에서 음소거·Space 장면 저장, 실시간 기록 탭에서 메모·판정·보고 문구 복사를 사용하세요. "
+            "사람 후보 자동 알림은 탐지·알림 신뢰도 중 높은 기준과 분석된 연속 프레임을 사용합니다. 차량만 선택하면 자동 알림·자동 장면 저장은 없으며 수동 저장은 가능합니다. 음소거는 자동 저장을 끄지 않습니다. "
+            "저장 실패 안내는 다음 프레임에도 남습니다. 수동 요청 뒤 받은 프레임을 저장하며 시각은 PC 수신 기준입니다. 다른 구간을 선택해도 미저장 메모 초안을 유지하지만 파일 반영은 메모 저장을 눌러야 합니다. "
             "종료 직전 저장 요청도 최종 기록에 반영하며, 미저장 메모·저장 실패 안내가 남으면 다시 저장하세요. "
             "장면은 정지 이미지만 저장하며 live_events.json·live_events.csv에 기록합니다. "
             "모델 준비에 실패하거나 분석 시작 전에 취소한 작업은 폴더와 기록을 만들지 않습니다."
@@ -659,6 +669,18 @@ class ModernUi_MainWindow(object):
         QFrame#action_panel {
             background: #fffdf9;
             border-top: 1px solid #d9cbb8;
+        }
+
+        QGroupBox#dashboardLinkGroup {
+            color: #0f3d3a;
+            border: 1px solid #c1d2ce;
+            border-radius: 10px;
+            margin-top: 10px;
+        }
+        QGroupBox#dashboardLinkGroup::title {
+            subcontrol-origin: margin;
+            left: 12px;
+            padding: 0 5px;
         }
 
         QFrame#headerCard {

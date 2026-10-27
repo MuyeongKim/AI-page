@@ -132,6 +132,7 @@ desktop.ini
 node_modules/
 .astro/
 .playwright-cli/
+output/playwright/
 .vercel/
 
 # Landing page build output and committed visual assets

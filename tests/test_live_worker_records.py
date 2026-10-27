@@ -106,7 +106,6 @@ def test_manual_scene_without_people_and_scene_failure_keep_records(tmp_path, mo
             return np.zeros((60, 80, 3), dtype=np.uint8)
 
     def model(*args, **kwargs):
-        worker.request_snapshot()
         return [Empty()]
 
     def fail(*args, **kwargs):
@@ -115,6 +114,7 @@ def test_manual_scene_without_people_and_scene_failure_keep_records(tmp_path, mo
     if scene_write_failure:
         monkeypatch.setattr(gui.cv2, 'imencode', fail)
     monkeypatch.setattr(gui, 'YOLO', lambda _: model)
+    worker.request_snapshot()
     results = []
     worker.finished_signal.connect(results.append)
     worker.run()
@@ -125,6 +125,47 @@ def test_manual_scene_without_people_and_scene_failure_keep_records(tmp_path, mo
     assert event['kind'] == 'manual' and event['max_people'] == 0
     assert len(result['snapshot_files']) == (0 if scene_write_failure else 1)
     assert any('scene disk full' in warning for warning in result['warnings']) is scene_write_failure
+
+
+def test_late_manual_request_at_end_preserves_receive_time_and_reports_no_new_frame(
+    tmp_path, monkeypatch, qt_application
+):
+    from datetime import datetime, timedelta, timezone
+
+    received = datetime(2026, 10, 27, 5, 0, 0, tzinfo=timezone.utc)
+    clock = {'second': 0}
+
+    class Clock:
+        @staticmethod
+        def now():
+            return received + timedelta(seconds=clock['second'])
+
+    worker = gui.DetectionWorker({'source': gui.CAPTURE_BOARD_SOURCE, 'juso': 0,
+                                 'live_settings': {'confirmation_frames': 1}})
+    worker.open_video_capture = lambda _: Capture(frames=1)
+
+    class Box:
+        cls, conf = np.array(0), np.array(.9)
+
+    class Result:
+        names, boxes, speed = {0: 'person'}, [Box()], {'inference': 1}
+
+        def plot(self):
+            return np.zeros((60, 80, 3), dtype=np.uint8)
+
+    def model(*args, **kwargs):
+        clock['second'] = 10
+        worker.request_snapshot()
+        return [Result()]
+
+    monkeypatch.setattr(gui, 'datetime', Clock)
+    monkeypatch.setattr(gui.cv2, 'destroyAllWindows', lambda: None)
+    worker.model = model
+    worker.process_video(tmp_path)
+    event = json.loads((tmp_path / 'live_events.json').read_text())['events'][0]
+    assert event['started_at'] == received.astimezone().isoformat(timespec='milliseconds')
+    assert {scene['trigger'] for scene in event['snapshots']} == {'auto'}
+    assert any('새 프레임을 받기 전에 종료' in warning for warning in worker.warnings)
 
 
 @pytest.mark.parametrize('ending', ['disconnected', 'cancelled', 'failed'])

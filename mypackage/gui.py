@@ -188,6 +188,7 @@ class PreviewWindow(QWidget):
         layout.setSpacing(10)
 
         self.status_label = QLabel("실시간 입력을 시작하면 미리보기가 표시됩니다.")
+        self.status_label.setWordWrap(True)
         self.status_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         layout.addWidget(self.status_label)
 
@@ -204,13 +205,26 @@ class PreviewWindow(QWidget):
         self.snapshot_button.setAccessibleName("현재 캡처보드 장면 수동 저장")
         self.snapshot_button.clicked.connect(self.snapshot_requested)
         self.scene_status = QLabel("저장 장면 0장")
+        self.scene_status.setWordWrap(True)
         self.scene_status.setAccessibleName("이번 실행에서 저장한 정지 장면 수")
         toolbar.addWidget(self.mute_button)
         toolbar.addWidget(self.snapshot_button)
         toolbar.addWidget(self.scene_status)
         layout.addWidget(self.live_toolbar)
+        self.alert_status = QLabel("사람 후보 알림 대기 · 위치 미확인")
+        self.alert_status.setTextFormat(Qt.TextFormat.PlainText)
+        self.alert_status.setWordWrap(True)
+        self.storage_warning = QLabel()
+        self.storage_warning.setTextFormat(Qt.TextFormat.PlainText)
+        self.storage_warning.setWordWrap(True)
+        self.storage_warning.setStyleSheet("color: #b42318; font-weight: 600;")
+        self.storage_warning.setAccessibleName("실시간 장면·기록 저장 오류")
+        layout.addWidget(self.alert_status)
+        layout.addWidget(self.storage_warning)
+        for button in (self.mute_button, self.snapshot_button):
+            button.setMinimumHeight(36)
 
-        self.preview_label = QLabel("Preview")
+        self.preview_label = QLabel("영상 입력을 기다리는 중입니다.")
         self.preview_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.preview_label.setStyleSheet(
             """
@@ -234,6 +248,7 @@ class PreviewWindow(QWidget):
         self.tabs.addTab(self.live_records, "실시간 기록")
         layout.addWidget(self.tabs, 1)
         self._snapshot_shortcut = QShortcut(QKeySequence("Space"), self)
+        self._snapshot_shortcut.setAutoRepeat(False)
         self._snapshot_shortcut.activated.connect(self.request_snapshot)
         self._blink_remaining = 0
         self._alert_timer = QTimer(self)
@@ -244,12 +259,29 @@ class PreviewWindow(QWidget):
     def configure_source(self, source):
         live = source == CAPTURE_BOARD_SOURCE
         self.live_toolbar.setVisible(live)
+        self.alert_status.setVisible(live)
+        self.storage_warning.clear()
+        self.storage_warning.hide()
+        self.alert_status.setText("사람 후보 알림 대기 · 위치 미확인")
         self.snapshot_button.setEnabled(live)
         self._snapshot_shortcut.setEnabled(live)
         self.tabs.setTabVisible(1, live)
         self.tabs.setCurrentIndex(0)
         self.live_records.reset()
-        self.scene_status.setText("저장 장면 0장")
+        self._scene_count = 0
+        self._scene_feedback = ""
+        self.update_scene_count(0)
+
+    def update_scene_count(self, count):
+        self._scene_count = count
+        self.scene_status.setText(f"저장 장면 {count}장" + (
+            f" · {self._scene_feedback}" if self._scene_feedback else ""
+        ))
+
+    def show_scene_result(self, result):
+        trigger = "자동" if result["trigger"] == "auto" else "수동"
+        self._scene_feedback = f"최근 {trigger} 저장 " + ("완료" if result["saved"] else "실패")
+        self.update_scene_count(result["count"])
 
     def request_snapshot(self):
         if self.snapshot_button.isEnabled():
@@ -258,8 +290,9 @@ class PreviewWindow(QWidget):
     def alert(self, event):
         if not self.mute_button.isChecked():
             QApplication.beep()
-        self.status_label.setText(
-            f"사람 후보 알림 · 최대 동시 {event['max_people']}명 · 위치 미확인"
+        instant = datetime.fromisoformat(event["ended_at"]).strftime("%H:%M:%S")
+        self.alert_status.setText(
+            f"최근 알림 {instant} · 구간 내 최대 동시 후보 {event['max_people']}명 · 위치 미확인"
         )
         self._blink_remaining = 4
         self._blink_alert()
@@ -278,6 +311,9 @@ class PreviewWindow(QWidget):
     def finish_live(self, record_path):
         self.snapshot_button.setEnabled(False)
         self._snapshot_shortcut.setEnabled(False)
+        if self._scene_feedback.startswith("수동 저장 요청"):
+            self._scene_feedback = "종료됨 · 수동 요청 저장 안 됨"
+            self.update_scene_count(self._scene_count)
         self._blink_remaining = 1
         self._blink_alert()
         if record_path:
@@ -290,7 +326,7 @@ class PreviewWindow(QWidget):
         self.preview_pixmap = None
         self.status_label.setText(status_text)
         self.preview_label.clear()
-        self.preview_label.setText("Preview")
+        self.preview_label.setText("영상 입력을 기다리는 중입니다.")
 
     def set_status(self, status_text):
         self.status_label.setText(status_text)
@@ -476,6 +512,7 @@ class DetectionWorker(QThread):
     live_event_signal = Signal(dict)
     live_alert_signal = Signal(dict)
     live_warning_signal = Signal(str)
+    live_scene_signal = Signal(dict)
 
     def __init__(self, params):
         super().__init__()
@@ -521,7 +558,7 @@ class DetectionWorker(QThread):
         self._live_commands_lock = threading.Lock()
         self._live_commands = []
         self._live_edits_accepting = True
-        self._snapshot_requested = False
+        self._snapshot_requested = None
         self._last_live_checkpoint = -math.inf
         self._last_live_ui = -math.inf
         self._emitted_live_ids = set()
@@ -702,7 +739,11 @@ class DetectionWorker(QThread):
 
     def request_snapshot(self):
         with self._live_commands_lock:
-            self._snapshot_requested = True
+            if not self._live_edits_accepting:
+                return False
+            if self._snapshot_requested is None:
+                self._snapshot_requested = time.monotonic()
+            return True
 
     def request_live_edit(self, event_id, changes):
         with self._live_commands_lock:
@@ -717,13 +758,17 @@ class DetectionWorker(QThread):
             self.log_signal.emit(message)
             self.live_warning_signal.emit(message)
 
-    def _take_live_commands(self, seal=False):
+    def _take_live_commands(self, seal=False, frame_received_at=None):
         with self._live_commands_lock:
             if seal:
                 self._live_edits_accepting = False
-            commands, snapshot = self._live_commands, self._snapshot_requested
+            commands = self._live_commands
+            snapshot = (self._snapshot_requested is not None and (
+                seal or frame_received_at is None or self._snapshot_requested <= frame_received_at
+            ))
             self._live_commands = []
-            self._snapshot_requested = False
+            if snapshot:
+                self._snapshot_requested = None
         return commands, snapshot
 
     def _apply_live_edits(self, commands):
@@ -772,14 +817,19 @@ class DetectionWorker(QThread):
             event["snapshots"].append({"file": f"scenes/{name}", "captured_at": captured_at,
                                        "trigger": trigger})
             self.snapshot_files.append(str(destination.resolve()))
+            self.live_scene_signal.emit({"trigger": trigger, "saved": True,
+                                         "count": len(self.snapshot_files)})
         except Exception as error:
-            self._live_warning(f"{trigger} 장면 저장 실패: {error}")
+            self.live_scene_signal.emit({"trigger": trigger, "saved": False,
+                                         "count": len(self.snapshot_files)})
+            label = "자동" if trigger == "auto" else "수동"
+            self._live_warning(f"{label} 장면 저장 실패: {error}")
 
-    def _process_live_frame(self, output_folder, frame, confidences):
-        now = time.monotonic()
-        captured_at = datetime.now().astimezone().isoformat(timespec="milliseconds")
+    def _process_live_frame(self, output_folder, frame, confidences, *, received_at=None, captured_at=None):
+        now = time.monotonic() if received_at is None else received_at
+        captured_at = captured_at or datetime.now().astimezone().isoformat(timespec="milliseconds")
         alert = self.live_recorder.observe(now, captured_at, confidences)
-        commands, manual = self._take_live_commands()
+        commands, manual = self._take_live_commands(frame_received_at=now)
         changed = self._apply_live_edits(commands)
         if alert:
             event = self.live_recorder.current
@@ -1066,6 +1116,8 @@ class DetectionWorker(QThread):
                 ret, frame = cap.read()
                 if not ret:
                     break
+                received_at = time.monotonic()
+                captured_at = datetime.now().astimezone().isoformat(timespec="milliseconds")
 
                 frame_position_ms = cap.get(cv2.CAP_PROP_POS_MSEC)
                 if math.isfinite(frame_position_ms) and frame_position_ms >= 0:
@@ -1127,7 +1179,8 @@ class DetectionWorker(QThread):
                     self.draw_info(im_array, fps_text, person_count, car_count)
                     if self.live_recorder is not None:
                         try:
-                            self._process_live_frame(output_folder, im_array, person_confidences)
+                            self._process_live_frame(output_folder, im_array, person_confidences,
+                                                     received_at=received_at, captured_at=captured_at)
                         except Exception as error:
                             self._live_warning(f"실시간 기록 처리 실패: {error}")
 
@@ -1460,7 +1513,6 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
         self.pushButton_enter.clicked.connect(self.submit)
         self.open_output_button.clicked.connect(self.open_output_folder)
         self.open_result_button.clicked.connect(self.open_selected_result)
-        self.compare_result_button.clicked.connect(self.compare_selected_result)
         self.review_candidates_button.clicked.connect(self.review_candidates)
         self.load_records_button.clicked.connect(self.load_detection_records)
         self.export_candidates_button.clicked.connect(self.export_photo_candidates)
@@ -1627,7 +1679,11 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
         selected = self.result_files_combo.currentData() or {}
         self.result_files_combo.setEnabled(self.result_files_combo.count() > 0)
         self.open_result_button.setEnabled(bool(selected.get("output")))
-        self.compare_result_button.setEnabled(bool(selected.get("original")))
+        is_photo = bool(selected.get("output") and Path(selected["output"]).suffix.lower() in
+                        {".jpg", ".jpeg", ".png", ".bmp", ".webp", ".tif", ".tiff"})
+        self.open_result_button.setText(
+            "결과보기 [원본과 비교]" if is_photo or not selected else "영상 결과보기"
+        )
         result = self._last_detection_result or {}
         folder = result.get("output_folder")
         self.open_output_button.setEnabled(bool(folder) and Path(folder).is_dir())
@@ -1706,12 +1762,10 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
     def open_selected_result(self):
         output = (self.result_files_combo.currentData() or {}).get("output")
         if output and Path(output).suffix.lower() in {".jpg", ".jpeg", ".png", ".bmp", ".webp", ".tif", ".tiff"}:
-            self.show_result_gallery(False)
+            original = (self.result_files_combo.currentData() or {}).get("original")
+            self.show_result_gallery(bool(original and Path(original).is_file()))
         else:
             self.open_local_result(output)
-
-    def compare_selected_result(self):
-        self.show_result_gallery(True)
 
     def show_result_gallery(self, comparison):
         selected = self.result_files_combo.currentData() or {}
@@ -1938,6 +1992,7 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
             control.setEnabled(not self._processing)
         self.live_settings.setVisible(self.source == CAPTURE_BOARD_SOURCE)
         self.live_settings.setEnabled(not self._processing)
+        self.live_settings.set_detection_context(self.percentage, 0 in self.classes_to_detect)
 
         has_source = self.source in {"사진", VIDEO_FILE_SOURCE, CAPTURE_BOARD_SOURCE}
         self.lineEdit_juso.setEnabled(not self._processing and has_source)
@@ -2144,8 +2199,10 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
     @Slot()
     def request_live_snapshot(self):
         if self.worker is not None and self.worker.isRunning() and hasattr(self.worker, "request_snapshot"):
-            self.worker.request_snapshot()
-            self.preview_window.status_label.setText("수동 장면 저장 요청됨 · 다음 입력 프레임을 기다리는 중")
+            if self.worker.request_snapshot() is False:
+                return
+            self.preview_window._scene_feedback = "수동 저장 요청 · 다음 입력 프레임 대기"
+            self.preview_window.update_scene_count(self.preview_window._scene_count)
 
     @Slot(str, dict)
     def request_live_edit(self, event_id, changes):
@@ -2157,13 +2214,19 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
         if self.preview_window is not None:
             self.preview_window.live_records.apply_event(payload)
             count = sum(len(event["snapshots"]) for event in self.preview_window.live_records.events.values())
-            self.preview_window.scene_status.setText(f"저장 장면 {count}장")
+            self.preview_window.update_scene_count(count)
+
+    @Slot(dict)
+    def handle_live_scene(self, result):
+        if self.preview_window is not None:
+            self.preview_window.show_scene_result(result)
 
     @Slot(str)
     def handle_live_warning(self, message):
         if self.preview_window is not None:
             self.preview_window.live_records.save_status.setText(message)
-            self.preview_window.scene_status.setText("장면·기록 저장 확인 필요")
+            self.preview_window.storage_warning.setText(f"저장 확인 필요: {message}")
+            self.preview_window.storage_warning.show()
 
     @Slot(dict)
     def handle_live_alert(self, event):
@@ -2599,6 +2662,8 @@ class Ui_MainWindow(QMainWindow, ModernUi_MainWindow):
             self.worker.live_alert_signal.connect(self.handle_live_alert)
             if hasattr(self.worker, "live_warning_signal"):
                 self.worker.live_warning_signal.connect(self.handle_live_warning)
+            if hasattr(self.worker, "live_scene_signal"):
+                self.worker.live_scene_signal.connect(self.handle_live_scene)
         self.worker.finished.connect(self.on_worker_thread_finished)
 
         # 진행률 다이얼로그 설정

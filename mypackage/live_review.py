@@ -27,6 +27,8 @@ class LiveSettingsWidget(QGroupBox):
         super().__init__("실시간 알림·기록", parent)
         grid = QGridLayout(self)
         self.fields = {}
+        self._detection_confidence = .1
+        self._people_enabled = True
         definitions = [
             ("alert_confidence", "알림 신뢰도(%)", 0, 100, 50, 0),
             ("confirmation_frames", "알림 연속 프레임", 1, 60, 3, 0),
@@ -43,9 +45,35 @@ class LiveSettingsWidget(QGroupBox):
             grid.addWidget(label, index // 2, (index % 2) * 2)
             grid.addWidget(field, index // 2, (index % 2) * 2 + 1)
             self.fields[key] = field
-        note = QLabel("탐지 기준은 유지합니다. 알림 장면은 자동 저장되며 미리보기에서 음소거·수동 저장이 가능합니다.")
-        note.setWordWrap(True)
-        grid.addWidget(note, 2, 0, 1, 4)
+        self.note = QLabel()
+        self.note.setWordWrap(True)
+        self.note.setTextFormat(Qt.TextFormat.PlainText)
+        grid.addWidget(self.note, 2, 0, 1, 4)
+        for field in self.fields.values():
+            field.valueChanged.connect(self._update_description)
+        self._update_description()
+
+    def set_detection_context(self, confidence, people_enabled):
+        self._detection_confidence = confidence
+        self._people_enabled = people_enabled
+        for field in self.fields.values():
+            field.setEnabled(people_enabled)
+        self._update_description()
+
+    def _update_description(self, _value=None):
+        if not self._people_enabled:
+            self.note.setText("차량만 선택됨: 사람 자동 알림·자동 장면 저장은 동작하지 않습니다. "
+                              "미리보기에서 버튼 또는 Space로 수동 장면을 저장할 수 있습니다.")
+            return
+        settings = self.values()
+        threshold = max(self._detection_confidence, settings["alert_confidence"])
+        self.note.setText(
+            f"사람 후보 자동 알림·장면 저장: 실제 신뢰도 기준 {threshold:.0%} "
+            f"(탐지 {self._detection_confidence:.0%}·알림 {settings['alert_confidence']:.0%} 중 높은 값), "
+            f"분석된 연속 {settings['confirmation_frames']}프레임, 반복 최소 {settings['cooldown_seconds']:g}초.\n"
+            "느린 추론에서는 알림도 늦어집니다. 조건이 계속 충족되면 반복 간격마다 JPEG 1장을 저장합니다. "
+            "음소거는 소리만 끄며 자동 저장·화면 알림은 유지합니다. 영상 녹화는 하지 않습니다."
+        )
 
     def values(self):
         values = {key: field.value() for key, field in self.fields.items()}
@@ -64,6 +92,8 @@ class LiveRecordsWidget(QWidget):
         self.read_only_running = False
         self.events = {}
         self._pending = {}
+        self._note_drafts = {}
+        self._selected_id = None
         layout = QVBoxLayout(self)
         notice = QLabel("시간 구간 기록이며 동일인 추적·고유 인원 집계가 아닙니다. 위치는 미확인입니다.")
         notice.setWordWrap(True)
@@ -86,6 +116,7 @@ class LiveRecordsWidget(QWidget):
         self.save_note_button = QPushButton("메모 저장")
         self.save_note_button.clicked.connect(self.save_note)
         self.note_edit.returnPressed.connect(self.save_note)
+        self.note_edit.textEdited.connect(self.mark_note_draft)
         notes.addWidget(self.note_edit, 1)
         notes.addWidget(self.save_note_button)
         layout.addLayout(notes)
@@ -125,6 +156,8 @@ class LiveRecordsWidget(QWidget):
         self.read_only_running = False
         self.events.clear()
         self._pending.clear()
+        self._note_drafts.clear()
+        self._selected_id = None
         self.record_path = None
         self.table.setRowCount(0)
         self.note_edit.clear()
@@ -136,11 +169,21 @@ class LiveRecordsWidget(QWidget):
         return self.events.get(item.data(Qt.ItemDataRole.UserRole)) if item is not None else None
 
     def selection_changed(self):
+        previous = self.events.get(self._selected_id)
+        if previous:
+            expected = self._pending.get(self._selected_id, {}).get("note", previous["note"])
+            if self.note_edit.text() != expected:
+                self._note_drafts[self._selected_id] = self.note_edit.text()
+            else:
+                self._note_drafts.pop(self._selected_id, None)
         event = self.selected_event()
+        self._selected_id = event["id"] if event else None
         for control in [self.note_edit, self.save_note_button, self.copy_button, *self.review_buttons]:
             control.setEnabled(event is not None and not self.read_only_running)
-        self.note_edit.setText(self._pending.get(event["id"], {}).get("note", event["note"])
-                               if event else "")
+        self.note_edit.setText(self._note_drafts.get(event["id"], self._pending.get(
+            event["id"], {}).get("note", event["note"])) if event else "")
+        if event and event["id"] in self._note_drafts:
+            self.save_status.setText(f"미저장 메모 · {event['id']} · 메모 저장을 눌러 주세요.")
         self.scene_button.setEnabled(bool(event and event["snapshots"] and self.record_path))
         self.report_button.setEnabled(not self.active and self.record_path is not None)
 
@@ -177,6 +220,8 @@ class LiveRecordsWidget(QWidget):
         if payload.get("saved") and pending and all(event.get(key) == value for key, value in pending.items()):
             self._pending.pop(event_id, None)
             self.save_status.setText(f"저장됨 · {event_id}")
+            if selected_id == event_id and self.note_edit.text() != event["note"]:
+                self.save_status.setText(f"저장 요청은 반영됨 · {event_id}의 새 미저장 메모를 유지했습니다.")
         selected = self.selected_event()
         self.scene_button.setEnabled(bool(selected and selected["snapshots"] and self.record_path))
 
@@ -224,6 +269,11 @@ class LiveRecordsWidget(QWidget):
         if errors or self._pending:
             detail = "; ".join(errors) or "저장 확인을 받지 못한 요청이 있습니다."
             self.save_status.setText(f"종료됨 · 기록/CSV 저장 확인 필요: {detail} · 다시 저장해 주세요.")
+
+    def mark_note_draft(self, _text):
+        event = self.selected_event()
+        if event is not None:
+            self.save_status.setText(f"미저장 메모 · {event['id']} · 메모 저장을 눌러 주세요.")
 
     def save_note(self):
         self.commit({"note": self.note_edit.text()})

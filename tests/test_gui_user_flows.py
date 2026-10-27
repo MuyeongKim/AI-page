@@ -121,12 +121,12 @@ def test_results_remain_accessible_with_complete_errors_and_photo_comparison(
     assert all(error in window.result_summary.toPlainText() for error in errors)
     assert window.infoTabs.currentIndex() == window.result_tab_index
     assert window.open_output_button.isEnabled()
-    assert window.compare_result_button.isEnabled()
+    assert window.open_result_button.isEnabled()
     opened = []
     monkeypatch.setattr(gui.QDesktopServices, "openUrl", lambda url: opened.append(url) or True)
     window.open_output_button.click()
     assert Path(opened[0].toLocalFile()) == tmp_path
-    window.compare_result_button.click()
+    window.open_result_button.click()
     qapp.processEvents()
     assert window._comparison_dialog.isVisible()
     window._comparison_dialog.close()
